@@ -81,13 +81,25 @@ gotbilled/
 ├── tsconfig.json                      ← TypeScript config (ES2022, strict)
 ├── migrations/
 │   └── 0001_initial_schema.sql        ← D1 schema (deployed)
-└── src/
-    ├── worker.ts                      ← API Worker entry point (URL routing, CORS, error handling)
-    ├── types.ts                       ← TypeScript interfaces (Env, ReportInput, row types)
-    ├── data.ts                        ← Constants (procedure types, cities, hospital tiers, limits)
-    ├── validation.ts                  ← validateReport() — honeypot, timing, field checks, structural flagging
-    ├── submit.ts                      ← handleSubmit() + handleUpvote() — IP hash, rate limit, D1 writes, aggregates
-    └── read.ts                        ← Read endpoints — stats, city, procedure, absurd feed, calculator, feed
+├── src/                               ← API Worker (Cloudflare Workers)
+│   ├── worker.ts                      ← API entry point (URL routing, CORS, Queue consumer)
+│   ├── types.ts                       ← TypeScript interfaces (Env, ReportInput, QueueMessage, row types)
+│   ├── data.ts                        ← Constants (procedure types, cities, hospital tiers, limits)
+│   ├── validation.ts                  ← validateReport() — honeypot, timing, field checks, structural flagging
+│   ├── submit.ts                      ← handleSubmit() + handleUpvote() + processQueueBatch()
+│   └── read.ts                        ← Read endpoints with KV caching
+└── frontend/                          ← SvelteKit app (Cloudflare Pages)
+    ├── package.json                   ← Frontend dependencies
+    ├── svelte.config.js               ← SvelteKit config with Cloudflare Pages adapter
+    ├── tailwind.config.js             ← Tailwind CSS config
+    └── src/
+        ├── app.html                   ← HTML shell
+        ├── app.css                    ← Tailwind directives
+        ├── lib/api.ts                 ← API client (calls Worker endpoints)
+        └── routes/
+            ├── +layout.svelte         ← Global layout (nav, footer)
+            ├── +page.svelte           ← Homepage (stats, leaderboard, absurd charge)
+            └── submit/+page.svelte    ← 3-step submission form
 ```
 
 ## Build Progress
@@ -106,12 +118,14 @@ gotbilled/
 - [x] API Worker — submission endpoint with validation gauntlet (honeypot, timing, IP rate limit, structural flagging, D1 batch writes, incremental aggregate updates)
 - [x] API Worker — read endpoints (stats, city page, procedure page, absurd feed, calculator, recent feed, cities list, procedures list)
 - [x] API Worker — upvote endpoint with IP-hash dedup
+- [x] KV cache wired into all read endpoints (TTLs: 1h aggregates, 15min absurd, 5min feeds)
+- [x] Queue wired for submission buffering (producer + consumer with per-message ack/retry)
+- [x] Worker deployed to `https://gotbilled.gotbilled.workers.dev`
+- [x] Frontend scaffolding — SvelteKit + Tailwind CSS + Cloudflare Pages adapter
+- [x] Homepage — hero stats, city leaderboard, top absurd charge, how-it-works
+- [x] Submission form — 3-step form (procedure/location, amounts, surprise charges + submit)
 
 ### Next Up
-
-- [ ] **Frontend** — SvelteKit project scaffolding with Cloudflare Pages adapter
-- [ ] **Submission form** — multi-step form with bot protection
-- [ ] **Homepage** — hero stat, city leaderboard, absurd charge, live counter
 
 ### Future (not started)
 
