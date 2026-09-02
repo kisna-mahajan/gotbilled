@@ -97,9 +97,15 @@ gotbilled/
         ├── app.css                    ← Tailwind directives
         ├── lib/api.ts                 ← API client (calls Worker endpoints)
         └── routes/
-            ├── +layout.svelte         ← Global layout (nav, footer)
-            ├── +page.svelte           ← Homepage (stats, leaderboard, absurd charge)
-            └── submit/+page.svelte    ← 3-step submission form
+            ├── +layout.svelte         ← Global layout (sticky nav, footer)
+            ├── +page.svelte           ← Homepage (animated stats, city leaderboard, absurd charge, how-it-works)
+            ├── +page.ts               ← Homepage data loader (stats API)
+            ├── submit/
+            │   ├── +page.svelte       ← Single-page submission form (required fields prominent, optional section)
+            │   └── +page.ts           ← Submit page data loader (cities, procedures)
+            └── explore/
+                ├── +page.svelte       ← Analytics dashboard (filters, city/procedure deep-dive, calculator, absurd charges, feed)
+                └── +page.ts           ← Explore page data loader (cities, procedures, stats)
 ```
 
 ## Build Progress
@@ -122,10 +128,10 @@ gotbilled/
 - [x] Queue wired for submission buffering (producer + consumer with per-message ack/retry)
 - [x] Worker deployed to `https://gotbilled.gotbilled.workers.dev`
 - [x] Frontend scaffolding — SvelteKit + Tailwind CSS + Cloudflare Pages adapter
-- [x] Homepage — hero stats, city leaderboard, top absurd charge, how-it-works
-- [x] Submission form — 3-step form (procedure/location, amounts, surprise charges + submit)
-
-### Next Up
+- [x] Homepage — hero stats (animated counters), city leaderboard, top absurd charge, how-it-works
+- [x] Submission form — single-page form (required fields prominent, optional section for stay days + surprise charges)
+- [x] Explore page — analytics dashboard with filters (city/procedure/tier), calculator tab, absurd charges feed with upvotes, recent bills feed
+- [x] Light minimal design theme — white bg, ink/pop color system, Inter + JetBrains Mono fonts
 
 ### Future (not started)
 

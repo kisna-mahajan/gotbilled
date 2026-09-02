@@ -3,17 +3,15 @@
 </script>
 
 <div class="min-h-screen flex flex-col">
-  <header class="bg-white border-b border-gray-200">
-    <nav class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2 text-xl font-bold text-gray-900 hover:text-brand-600 transition-colors">
-        <span class="text-2xl">🧾</span>
-        gotbilled.in
+  <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-xl">
+    <nav class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="/" class="text-base font-bold text-ink-900 hover:text-pop-red transition-colors tracking-tight">
+        gotbilled<span class="text-pop-red">.</span>in
       </a>
-      <div class="flex items-center gap-6 text-sm font-medium">
-        <a href="/absurd" class="text-gray-600 hover:text-brand-600 transition-colors">Absurd Bills</a>
-        <a href="/calculator" class="text-gray-600 hover:text-brand-600 transition-colors">Calculator</a>
-        <a href="/submit" class="bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 transition-colors">
-          Share Your Bill
+      <div class="flex items-center gap-6 text-sm">
+        <a href="/explore" class="text-ink-300 hover:text-ink-900 transition-colors">Explore</a>
+        <a href="/submit" class="bg-ink-900 text-white text-xs font-semibold px-4 py-2 rounded-full hover:bg-ink-700 transition-colors">
+          Share a bill
         </a>
       </div>
     </nav>
@@ -23,16 +21,10 @@
     <slot />
   </main>
 
-  <footer class="bg-gray-900 text-gray-400 mt-auto">
-    <div class="max-w-6xl mx-auto px-4 py-8">
-      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="text-sm">
-          <span class="text-white font-semibold">gotbilled.in</span> — Crowdsourced hospital billing transparency for India
-        </div>
-        <div class="text-xs">
-          100% anonymous. No login. No tracking. Just the truth about medical bills.
-        </div>
-      </div>
+  <footer class="border-t border-ink-50 mt-auto">
+    <div class="max-w-5xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-ink-200">
+      <span>gotbilled.in</span>
+      <span>anonymous &middot; no login &middot; no tracking</span>
     </div>
   </footer>
 </div>

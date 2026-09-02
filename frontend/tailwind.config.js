@@ -4,18 +4,25 @@ export default {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: "#fef2f2",
-          100: "#fee2e2",
-          200: "#fecaca",
-          300: "#fca5a5",
-          400: "#f87171",
-          500: "#ef4444",
-          600: "#dc2626",
-          700: "#b91c1c",
-          800: "#991b1b",
-          900: "#7f1d1d",
+        ink: {
+          900: "#111111",
+          700: "#333333",
+          500: "#666666",
+          300: "#999999",
+          200: "#cccccc",
+          100: "#e5e5e5",
+          50: "#f5f5f5",
         },
+        pop: {
+          red: "#e63946",
+          green: "#2a9d8f",
+          amber: "#e9c46a",
+          blue: "#457b9d",
+        },
+      },
+      fontFamily: {
+        sans: ['"Inter"', "system-ui", "sans-serif"],
+        mono: ['"JetBrains Mono"', "ui-monospace", "monospace"],
       },
     },
   },

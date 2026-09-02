@@ -78,24 +78,113 @@ export function upvoteItem(itemId: string) {
   return postApi<void>(`/api/upvote/${itemId}`, {});
 }
 
+export interface AggregateRow {
+  procedure_type: string;
+  hospital_tier: string;
+  city: string;
+  report_count: number;
+  avg_quoted: number;
+  avg_final: number;
+  avg_surprise_pct: number;
+  max_surprise_pct: number;
+  min_surprise_pct: number;
+}
+
+export interface CityData {
+  city: string;
+  state: string;
+  aggregates: AggregateRow[];
+  top_surprise_items: AbsurdItem[];
+  overview: {
+    total: number;
+    avg_surprise: number;
+    avg_quoted: number;
+    avg_final: number;
+  } | null;
+}
+
+export interface ProcedureData {
+  procedure: string;
+  display_name: string;
+  aggregates: AggregateRow[];
+  overview: {
+    total: number;
+    avg_surprise: number;
+    avg_quoted: number;
+    avg_final: number;
+  } | null;
+}
+
+export interface AbsurdItem {
+  id?: string;
+  description: string;
+  amount: number;
+  upvotes: number;
+  city: string;
+  hospital_tier: string;
+  procedure_type: string;
+  created_at?: string;
+}
+
+export interface AbsurdFeedData {
+  items: AbsurdItem[];
+  page: number;
+  limit: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface FeedReport {
+  id: string;
+  procedure_type: string;
+  city: string;
+  state: string;
+  hospital_tier: string;
+  insurance_used: string;
+  quoted_amount: number;
+  final_amount: number;
+  surprise_percentage: number;
+  procedure_year: number;
+  created_at: string;
+}
+
+export interface FeedData {
+  reports: FeedReport[];
+  page: number;
+  limit: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface CalculatorData {
+  available: boolean;
+  message?: string;
+  report_count?: number;
+  avg_quoted?: number;
+  avg_final?: number;
+  avg_surprise_pct?: number;
+  max_surprise_pct?: number;
+  min_surprise_pct?: number;
+}
+
 export function getCityData(city: string) {
-  return fetchApi<unknown>(`/api/city/${city}`);
+  return fetchApi<CityData>(`/api/city/${city}`);
 }
 
 export function getProcedureData(procedure: string) {
-  return fetchApi<unknown>(`/api/procedure/${procedure}`);
+  return fetchApi<ProcedureData>(`/api/procedure/${procedure}`);
 }
 
 export function getAbsurdFeed(page = 1, limit = 20) {
-  return fetchApi<unknown>(`/api/absurd?page=${page}&limit=${limit}`);
+  return fetchApi<AbsurdFeedData>(`/api/absurd?page=${page}&limit=${limit}`);
 }
 
 export function getCalculator(procedure: string, city: string, tier?: string) {
   let url = `/api/calculator?procedure=${procedure}&city=${city}`;
   if (tier) url += `&tier=${tier}`;
-  return fetchApi<unknown>(url);
+  return fetchApi<CalculatorData>(url);
 }
 
 export function getFeed(page = 1, limit = 20) {
-  return fetchApi<unknown>(`/api/feed?page=${page}&limit=${limit}`);
+  return fetchApi<FeedData>(`/api/feed?page=${page}&limit=${limit}`);
 }

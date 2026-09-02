@@ -1,147 +1,164 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { StatsData } from "$lib/api";
 
   export let data: { stats: StatsData | null };
 
-  function formatCurrency(amount: number): string {
-    if (amount >= 10_000_000) return `₹${(amount / 10_000_000).toFixed(1)} Cr`;
-    if (amount >= 100_000) return `₹${(amount / 100_000).toFixed(1)} L`;
-    if (amount >= 1_000) return `₹${(amount / 1_000).toFixed(1)}K`;
-    return `₹${amount}`;
+  let mounted = false;
+  let animatedReports = 0;
+  let animatedSurprise = 0;
+  let animatedOverbilled = 0;
+  let animatedToday = 0;
+
+  function animate(target: number, setter: (n: number) => void, duration = 1200) {
+    const start = performance.now();
+    function tick(now: number) {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 4);
+      setter(Math.round(target * eased));
+      if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
   }
 
-  function formatCity(slug: string): string {
-    return slug
-      .split("_")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
+  function shortCurrency(n: number): string {
+    if (n >= 10_000_000) return `${(n / 10_000_000).toFixed(1)} Cr`;
+    if (n >= 100_000) return `${(n / 100_000).toFixed(1)}L`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+    return `${n}`;
   }
 
-  function formatTier(tier: string): string {
-    const map: Record<string, string> = {
-      corporate_chain: "Corporate Chain",
-      private_standalone: "Private Hospital",
-      government: "Government",
-      trust: "Trust/Charity",
-    };
-    return map[tier] || tier;
+  function cityName(slug: string): string {
+    return slug.split("_").map((w: string) => w[0].toUpperCase() + w.slice(1)).join(" ");
   }
+
+  onMount(() => {
+    mounted = true;
+    if (data.stats) {
+      animate(data.stats.total_reports, (n) => (animatedReports = n));
+      animate(Math.round(data.stats.national_avg_surprise), (n) => (animatedSurprise = n));
+      animate(data.stats.total_overbilled, (n) => (animatedOverbilled = n));
+      animate(data.stats.today_count, (n) => (animatedToday = n), 600);
+    }
+  });
 </script>
 
 <svelte:head>
-  <title>gotbilled.in — What Indians Actually Pay for Medical Procedures</title>
+  <title>gotbilled.in — what Indians actually pay for medical procedures</title>
 </svelte:head>
 
 <!-- Hero -->
-<section class="bg-gradient-to-br from-brand-600 to-brand-800 text-white">
-  <div class="max-w-6xl mx-auto px-4 py-16 md:py-24">
-    <h1 class="text-4xl md:text-6xl font-bold mb-4">
-      What did you<br />
-      <span class="text-brand-200">actually</span> pay?
-    </h1>
-    <p class="text-lg md:text-xl text-brand-100 mb-8 max-w-2xl">
-      Anonymous, crowdsourced hospital billing data from across India.
-      See the gap between what hospitals quote and what patients actually pay.
-    </p>
+<section class="max-w-5xl mx-auto px-6 pt-16 md:pt-28 pb-20">
+  <h1 class="text-4xl md:text-6xl font-black leading-[1.05] tracking-tight mb-5 max-w-xl">
+    What did you actually pay?
+  </h1>
+  <p class="text-lg text-ink-300 mb-16 max-w-md leading-relaxed">
+    Anonymous hospital billing data, crowdsourced across India. Quoted vs. final — no names, just numbers.
+  </p>
 
-    {#if data.stats}
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white/10 backdrop-blur rounded-xl p-4">
-          <div class="text-3xl md:text-4xl font-bold">{data.stats.total_reports.toLocaleString("en-IN")}</div>
-          <div class="text-brand-200 text-sm mt-1">Bills Shared</div>
-        </div>
-        <div class="bg-white/10 backdrop-blur rounded-xl p-4">
-          <div class="text-3xl md:text-4xl font-bold">{data.stats.national_avg_surprise}%</div>
-          <div class="text-brand-200 text-sm mt-1">Avg Surprise Markup</div>
-        </div>
-        <div class="bg-white/10 backdrop-blur rounded-xl p-4">
-          <div class="text-3xl md:text-4xl font-bold">{formatCurrency(data.stats.total_overbilled)}</div>
-          <div class="text-brand-200 text-sm mt-1">Total Overbilled</div>
-        </div>
-        <div class="bg-white/10 backdrop-blur rounded-xl p-4">
-          <div class="text-3xl md:text-4xl font-bold">{data.stats.today_count}</div>
-          <div class="text-brand-200 text-sm mt-1">Shared Today</div>
-        </div>
+  {#if data.stats && mounted}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-10 mb-16">
+      <div>
+        <div class="stat-value text-ink-900">{animatedReports.toLocaleString("en-IN")}</div>
+        <div class="stat-label">Bills shared</div>
       </div>
-    {:else}
-      <div class="bg-white/10 backdrop-blur rounded-xl p-6 mb-8 max-w-md">
-        <div class="text-xl font-semibold mb-2">Be the first to share</div>
-        <div class="text-brand-200">No bills shared yet. Your anonymous report helps everyone.</div>
+      <div>
+        <div class="stat-value text-pop-red">{animatedSurprise}%</div>
+        <div class="stat-label">Avg surprise</div>
       </div>
-    {/if}
+      <div>
+        <div class="stat-value text-ink-900">₹{shortCurrency(animatedOverbilled)}</div>
+        <div class="stat-label">Total overbilled</div>
+      </div>
+      <div>
+        <div class="stat-value text-pop-green">{animatedToday}</div>
+        <div class="stat-label">Today</div>
+      </div>
+    </div>
+  {:else if !data.stats}
+    <div class="border border-ink-100 rounded-2xl p-8 max-w-sm mb-16">
+      <p class="text-xl font-bold mb-2">Be the first.</p>
+      <p class="text-ink-300 text-sm">No bills shared yet. Your anonymous report helps everyone.</p>
+    </div>
+  {/if}
 
-    <a href="/submit" class="inline-block bg-white text-brand-700 font-bold px-8 py-4 rounded-xl text-lg hover:bg-brand-50 transition-colors shadow-lg">
-      Share Your Bill Anonymously
-    </a>
+  <div class="flex gap-4">
+    <a href="/submit" class="btn-primary">Share your bill</a>
+    <a href="/explore" class="btn-ghost">Explore data</a>
   </div>
 </section>
 
+<!-- Divider -->
+<div class="border-t border-ink-50"></div>
+
 <!-- City Leaderboard -->
 {#if data.stats?.city_leaderboard && data.stats.city_leaderboard.length > 0}
-<section class="max-w-6xl mx-auto px-4 py-12">
-  <h2 class="text-2xl font-bold mb-6">Cities with Most Reports</h2>
-  <div class="grid md:grid-cols-2 gap-4">
+<section class="max-w-5xl mx-auto px-6 py-20">
+  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Top reporting cities</h2>
+
+  <div class="space-y-1">
     {#each data.stats.city_leaderboard as city, i}
-      <a href="/city/{city.city}" class="flex items-center gap-4 bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:border-brand-200 hover:shadow-md transition-all">
-        <div class="text-2xl font-bold text-gray-300 w-8 text-center">{i + 1}</div>
-        <div class="flex-1">
-          <div class="font-semibold">{formatCity(city.city)}</div>
-          <div class="text-sm text-gray-500">{city.reports} reports</div>
-        </div>
-        <div class="text-right">
-          <div class="text-lg font-bold" class:text-brand-600={city.avg_surprise > 20} class:text-yellow-600={city.avg_surprise > 0 && city.avg_surprise <= 20} class:text-green-600={city.avg_surprise <= 0}>
-            {city.avg_surprise > 0 ? "+" : ""}{Math.round(city.avg_surprise)}%
-          </div>
-          <div class="text-xs text-gray-400">avg surprise</div>
-        </div>
+      <a href="/explore?city={city.city}" class="flex items-center gap-6 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors group">
+        <span class="text-ink-200 font-mono text-sm w-6 text-right">{i + 1}</span>
+        <span class="flex-1 font-medium group-hover:text-pop-red transition-colors">{cityName(city.city)}</span>
+        <span class="text-ink-300 text-sm">{city.reports} reports</span>
+        <span class="font-mono font-bold text-lg min-w-[4rem] text-right"
+          class:text-pop-red={city.avg_surprise > 20}
+          class:text-pop-amber={city.avg_surprise > 0 && city.avg_surprise <= 20}
+          class:text-pop-green={city.avg_surprise <= 0}>
+          {city.avg_surprise > 0 ? "+" : ""}{Math.round(city.avg_surprise)}%
+        </span>
       </a>
     {/each}
   </div>
 </section>
 {/if}
 
-<!-- Top Absurd Charge -->
+<!-- Absurd Charge -->
 {#if data.stats?.top_absurd_charge}
-<section class="bg-brand-50 border-y border-brand-100">
-  <div class="max-w-6xl mx-auto px-4 py-12">
-    <h2 class="text-2xl font-bold mb-6">Most Absurd Charge</h2>
-    <div class="bg-white rounded-xl p-6 shadow-sm border border-brand-100 max-w-lg">
-      <div class="text-lg font-medium mb-2">"{data.stats.top_absurd_charge.description}"</div>
-      <div class="text-3xl font-bold text-brand-600 mb-2">
-        {formatCurrency(data.stats.top_absurd_charge.amount)}
-      </div>
-      <div class="text-sm text-gray-500">
-        {formatCity(data.stats.top_absurd_charge.city)} &middot; {formatTier(data.stats.top_absurd_charge.hospital_tier)}
-      </div>
-      <div class="mt-3 text-sm text-gray-400">
-        {data.stats.top_absurd_charge.upvotes} people found this absurd
-      </div>
+<div class="border-t border-ink-50"></div>
+<section class="max-w-5xl mx-auto px-6 py-20">
+  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Most absurd charge</h2>
+
+  <div class="max-w-lg">
+    <p class="text-2xl md:text-3xl font-semibold leading-snug mb-4">
+      &ldquo;{data.stats.top_absurd_charge.description}&rdquo;
+    </p>
+    <div class="stat-value text-pop-red !text-4xl mb-4">
+      ₹{data.stats.top_absurd_charge.amount.toLocaleString("en-IN")}
     </div>
-    <a href="/absurd" class="inline-block mt-4 text-brand-600 hover:text-brand-800 font-medium text-sm">
-      See all absurd charges &rarr;
-    </a>
+    <div class="flex gap-3 text-sm text-ink-300">
+      <span>{cityName(data.stats.top_absurd_charge.city)}</span>
+      <span>&middot;</span>
+      <span>{data.stats.top_absurd_charge.upvotes} found this absurd</span>
+    </div>
   </div>
 </section>
 {/if}
 
-<!-- How It Works -->
-<section class="max-w-6xl mx-auto px-4 py-12">
-  <h2 class="text-2xl font-bold mb-8 text-center">How It Works</h2>
-  <div class="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-    <div class="text-center">
-      <div class="text-4xl mb-3">📝</div>
-      <h3 class="font-semibold mb-2">Share Your Bill</h3>
-      <p class="text-gray-600 text-sm">Tell us what you were quoted and what you actually paid. Takes 2 minutes. Completely anonymous.</p>
+<!-- How it works -->
+<div class="border-t border-ink-50"></div>
+<section class="max-w-5xl mx-auto px-6 py-20">
+  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-12 text-center">How it works</h2>
+  <div class="grid md:grid-cols-3 gap-12 max-w-3xl mx-auto text-center">
+    <div>
+      <div class="text-3xl mb-4">📝</div>
+      <h3 class="font-semibold mb-2">Share</h3>
+      <p class="text-sm text-ink-300 leading-relaxed">What were you quoted? What did you pay? 2 minutes, fully anonymous.</p>
     </div>
-    <div class="text-center">
-      <div class="text-4xl mb-3">📊</div>
-      <h3 class="font-semibold mb-2">We Aggregate</h3>
-      <p class="text-gray-600 text-sm">Data is grouped by city, procedure, and hospital type. No hospital names — just patterns.</p>
+    <div>
+      <div class="text-3xl mb-4">📊</div>
+      <h3 class="font-semibold mb-2">Aggregate</h3>
+      <p class="text-sm text-ink-300 leading-relaxed">Data grouped by city, procedure, hospital type. No names, just patterns.</p>
     </div>
-    <div class="text-center">
-      <div class="text-4xl mb-3">💡</div>
-      <h3 class="font-semibold mb-2">Everyone Benefits</h3>
-      <p class="text-gray-600 text-sm">Check what others paid before your next hospital visit. Know if your quote is fair.</p>
+    <div>
+      <div class="text-3xl mb-4">💡</div>
+      <h3 class="font-semibold mb-2">Benefit</h3>
+      <p class="text-sm text-ink-300 leading-relaxed">Know what others paid. Walk in informed. Question unfair quotes.</p>
     </div>
+  </div>
+
+  <div class="text-center mt-12">
+    <a href="/submit" class="btn-primary">Share your bill</a>
   </div>
 </section>
