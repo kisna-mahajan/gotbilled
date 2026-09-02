@@ -1,4 +1,4 @@
-import { Env, ReportInput, ApiResponse } from "./types";
+import { Env, ReportInput, ApiResponse, QueueMessage } from "./types";
 import { CITY_STATE_MAP, RATE_LIMIT_PER_DAY } from "./data";
 import { validateReport } from "./validation";
 
@@ -51,83 +51,30 @@ export async function handleSubmit(
     ((body.final_amount - body.quoted_amount) / body.quoted_amount) * 100;
   const surprisePctRounded = Math.round(surprisePct * 100) / 100;
 
-  const insertReport = env.DB.prepare(
-    `INSERT INTO reports (id, ip_hash, procedure_type, procedure_other, city, state,
-      hospital_tier, insurance_used, quoted_amount, final_amount, surprise_percentage,
-      stay_days, procedure_year, flagged, quarantined)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(
+  const message: QueueMessage = {
+    type: "report",
     reportId,
     ipHash,
-    body.procedure_type,
-    body.procedure_other?.trim() || null,
-    body.city,
+    procedureType: body.procedure_type,
+    procedureOther: body.procedure_other?.trim() || null,
+    city: body.city,
     state,
-    body.hospital_tier,
-    body.insurance_used,
-    body.quoted_amount,
-    body.final_amount,
-    surprisePctRounded,
-    body.stay_days ?? null,
-    body.procedure_year,
-    validation.flagged ? 1 : 0,
-    0
-  );
-
-  const statements: D1PreparedStatement[] = [insertReport];
-
-  if (body.surprise_charges && body.surprise_charges.length > 0) {
-    for (const item of body.surprise_charges) {
-      statements.push(
-        env.DB.prepare(
-          `INSERT INTO surprise_items (id, report_id, description, amount)
-           VALUES (?, ?, ?, ?)`
-        ).bind(crypto.randomUUID(), reportId, item.description.trim(), item.amount)
-      );
-    }
-  }
-
-  // Incremental aggregate update using corrected running average formula:
-  // new_avg = ((old_avg * old_count) + new_value) / (old_count + 1)
-  statements.push(
-    env.DB.prepare(
-      `INSERT INTO aggregates (city, procedure_type, hospital_tier, report_count,
-        avg_quoted, avg_final, avg_surprise_pct, max_surprise_pct, min_surprise_pct)
-       VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
-       ON CONFLICT(city, procedure_type, hospital_tier) DO UPDATE SET
-        report_count = report_count + 1,
-        avg_quoted = ((avg_quoted * report_count) + excluded.avg_quoted) / (report_count + 1),
-        avg_final = ((avg_final * report_count) + excluded.avg_final) / (report_count + 1),
-        avg_surprise_pct = ((avg_surprise_pct * report_count) + excluded.avg_surprise_pct) / (report_count + 1),
-        max_surprise_pct = MAX(max_surprise_pct, excluded.max_surprise_pct),
-        min_surprise_pct = MIN(min_surprise_pct, excluded.min_surprise_pct),
-        updated_at = datetime('now')`
-    ).bind(
-      body.city,
-      body.procedure_type,
-      body.hospital_tier,
-      body.quoted_amount,
-      body.final_amount,
-      surprisePctRounded,
-      surprisePctRounded,
-      surprisePctRounded
-    )
-  );
-
-  if (validation.flagged) {
-    statements.push(
-      env.DB.prepare(
-        `INSERT INTO moderation_log (id, report_id, reason, auto_action)
-         VALUES (?, ?, ?, 'flagged')`
-      ).bind(crypto.randomUUID(), reportId, validation.flagReasons.join(", "))
-    );
-  }
+    hospitalTier: body.hospital_tier,
+    insuranceUsed: body.insurance_used,
+    quotedAmount: body.quoted_amount,
+    finalAmount: body.final_amount,
+    surprisePercentage: surprisePctRounded,
+    stayDays: body.stay_days ?? null,
+    procedureYear: body.procedure_year,
+    flagged: validation.flagged,
+    flagReasons: validation.flagReasons,
+    surpriseCharges: body.surprise_charges || [],
+  };
 
   try {
-    await env.DB.batch(statements);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return jsonResponse({ ok: false, error: "Failed to save report: " + message }, 500);
+    await env.SUBMISSIONS_QUEUE.send(message);
+  } catch {
+    return jsonResponse({ ok: false, error: "Failed to queue submission" }, 500);
   }
 
   return jsonResponse({
@@ -182,7 +129,111 @@ export async function handleUpvote(
     return jsonResponse({ ok: false, error: "Failed to upvote" }, 500);
   }
 
+  await invalidateCache(env, ["stats", "absurd"]);
+
   return jsonResponse({ ok: true });
+}
+
+export async function processQueueBatch(
+  batch: MessageBatch<QueueMessage>,
+  env: Env
+): Promise<void> {
+  const keysToInvalidate = new Set<string>();
+  keysToInvalidate.add("stats");
+  keysToInvalidate.add("feed");
+
+  for (const msg of batch.messages) {
+    const m = msg.body;
+
+    const statements: D1PreparedStatement[] = [];
+
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO reports (id, ip_hash, procedure_type, procedure_other, city, state,
+          hospital_tier, insurance_used, quoted_amount, final_amount, surprise_percentage,
+          stay_days, procedure_year, flagged, quarantined)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        m.reportId,
+        m.ipHash,
+        m.procedureType,
+        m.procedureOther,
+        m.city,
+        m.state,
+        m.hospitalTier,
+        m.insuranceUsed,
+        m.quotedAmount,
+        m.finalAmount,
+        m.surprisePercentage,
+        m.stayDays,
+        m.procedureYear,
+        m.flagged ? 1 : 0,
+        0
+      )
+    );
+
+    for (const item of m.surpriseCharges) {
+      statements.push(
+        env.DB.prepare(
+          `INSERT INTO surprise_items (id, report_id, description, amount)
+           VALUES (?, ?, ?, ?)`
+        ).bind(crypto.randomUUID(), m.reportId, item.description.trim(), item.amount)
+      );
+    }
+
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO aggregates (city, procedure_type, hospital_tier, report_count,
+          avg_quoted, avg_final, avg_surprise_pct, max_surprise_pct, min_surprise_pct)
+         VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)
+         ON CONFLICT(city, procedure_type, hospital_tier) DO UPDATE SET
+          report_count = report_count + 1,
+          avg_quoted = ((avg_quoted * report_count) + excluded.avg_quoted) / (report_count + 1),
+          avg_final = ((avg_final * report_count) + excluded.avg_final) / (report_count + 1),
+          avg_surprise_pct = ((avg_surprise_pct * report_count) + excluded.avg_surprise_pct) / (report_count + 1),
+          max_surprise_pct = MAX(max_surprise_pct, excluded.max_surprise_pct),
+          min_surprise_pct = MIN(min_surprise_pct, excluded.min_surprise_pct),
+          updated_at = datetime('now')`
+      ).bind(
+        m.city,
+        m.procedureType,
+        m.hospitalTier,
+        m.quotedAmount,
+        m.finalAmount,
+        m.surprisePercentage,
+        m.surprisePercentage,
+        m.surprisePercentage
+      )
+    );
+
+    if (m.flagged) {
+      statements.push(
+        env.DB.prepare(
+          `INSERT INTO moderation_log (id, report_id, reason, auto_action)
+           VALUES (?, ?, ?, 'flagged')`
+        ).bind(crypto.randomUUID(), m.reportId, m.flagReasons.join(", "))
+      );
+    }
+
+    try {
+      await env.DB.batch(statements);
+      msg.ack();
+    } catch {
+      msg.retry();
+    }
+
+    keysToInvalidate.add(`city:${m.city}`);
+    keysToInvalidate.add(`procedure:${m.procedureType}`);
+    if (m.surpriseCharges.length > 0) {
+      keysToInvalidate.add("absurd");
+    }
+  }
+
+  await invalidateCache(env, [...keysToInvalidate]);
+}
+
+async function invalidateCache(env: Env, keys: string[]): Promise<void> {
+  await Promise.allSettled(keys.map((k) => env.CACHE.delete(`cache:${k}`)));
 }
 
 function jsonResponse<T>(body: ApiResponse<T>, status = 200): Response {

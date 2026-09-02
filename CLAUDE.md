@@ -38,8 +38,8 @@ Two documents define the product:
 
 - **D1 Database:** `gotbilled-db` (ID: `4189a828-2dbe-47ee-bf2a-d82210ec6f26`)
 - **Schema deployed:** Yes — all 5 tables and 7 indexes created on remote D1
-- KV namespace: Not yet created
-- Queue: Not yet created
+- **KV namespace:** `CACHE` (ID: `ce40d4a2eb984d9d8efe68ac6b8c414f`) — created, wired into Worker
+- **Queue:** `gotbilled-submissions` — created, wired as producer + consumer in Worker
 - Turnstile site key: Not yet configured
 - R2 bucket: Not yet created
 
@@ -107,8 +107,6 @@ gotbilled/
 
 ### Next Up
 
-- [ ] **Queue setup** — create Cloudflare Queue, wire up producer (API Worker) and consumer (batch writer)
-- [ ] **KV namespace** — create and configure for caching
 - [ ] **Frontend** — SvelteKit project scaffolding with Cloudflare Pages adapter
 - [ ] **Submission form** — multi-step form with bot protection
 - [ ] **Homepage** — hero stat, city leaderboard, absurd charge, live counter

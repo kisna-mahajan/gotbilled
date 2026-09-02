@@ -9,3 +9,16 @@ ENVIRONMENT = "production"
 binding = "DB"
 database_name = "gotbilled-db"
 database_id = "4189a828-2dbe-47ee-bf2a-d82210ec6f26"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "ce40d4a2eb984d9d8efe68ac6b8c414f"
+
+[[queues.producers]]
+queue = "gotbilled-submissions"
+binding = "SUBMISSIONS_QUEUE"
+
+[[queues.consumers]]
+queue = "gotbilled-submissions"
+max_batch_size = 10
+max_batch_timeout = 5

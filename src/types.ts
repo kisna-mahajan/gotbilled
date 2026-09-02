@@ -1,7 +1,29 @@
 export interface Env {
   DB: D1Database;
+  CACHE: KVNamespace;
+  SUBMISSIONS_QUEUE: Queue<QueueMessage>;
   ENVIRONMENT: string;
   IP_HASH_SALT?: string;
+}
+
+export interface QueueMessage {
+  type: "report";
+  reportId: string;
+  ipHash: string;
+  procedureType: string;
+  procedureOther: string | null;
+  city: string;
+  state: string;
+  hospitalTier: string;
+  insuranceUsed: string;
+  quotedAmount: number;
+  finalAmount: number;
+  surprisePercentage: number;
+  stayDays: number | null;
+  procedureYear: number;
+  flagged: boolean;
+  flagReasons: string[];
+  surpriseCharges: SurpriseChargeInput[];
 }
 
 export interface ReportInput {

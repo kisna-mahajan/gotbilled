@@ -1,5 +1,5 @@
-import { Env } from "./types";
-import { handleSubmit, handleUpvote } from "./submit";
+import { Env, QueueMessage } from "./types";
+import { handleSubmit, handleUpvote, processQueueBatch } from "./submit";
 import {
   handleStats,
   handleCityPage,
@@ -89,5 +89,9 @@ export default {
       const message = e instanceof Error ? e.message : "Internal server error";
       return addCors(jsonError(message, 500));
     }
+  },
+
+  async queue(batch: MessageBatch<QueueMessage>, env: Env): Promise<void> {
+    await processQueueBatch(batch, env);
   },
 };
