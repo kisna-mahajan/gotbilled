@@ -1,0 +1,11 @@
+name = "gotbilled"
+main = "src/worker.ts"
+compatibility_date = "2024-09-25"
+
+[vars]
+ENVIRONMENT = "production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gotbilled-db"
+database_id = "4189a828-2dbe-47ee-bf2a-d82210ec6f26"
