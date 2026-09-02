@@ -17,7 +17,7 @@ async function postApi<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const json = await res.json();
+  const json = await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` }));
   if (!json.ok) throw new Error(json.error || "Unknown error");
   return json.data;
 }

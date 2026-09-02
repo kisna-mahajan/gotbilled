@@ -29,6 +29,7 @@
   }
 
   function cityName(slug: string): string {
+    if (!slug) return "";
     return slug.split("_").map((w: string) => w[0].toUpperCase() + w.slice(1)).join(" ");
   }
 

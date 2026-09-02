@@ -5,6 +5,10 @@ export async function load(): Promise<{
   cities: CityOption[];
   procedures: ProcedureOption[];
 }> {
-  const [cities, procedures] = await Promise.all([getCities(), getProcedures()]);
-  return { cities, procedures };
+  try {
+    const [cities, procedures] = await Promise.all([getCities(), getProcedures()]);
+    return { cities, procedures };
+  } catch {
+    return { cities: [], procedures: [] };
+  }
 }

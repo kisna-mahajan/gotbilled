@@ -33,7 +33,8 @@
   let procedureYear = new Date().getFullYear();
   let surpriseCharges: Array<{ description: string; amount: number | null }> = [];
 
-  const formLoadedAt = Date.now();
+  let formLoadedAt = Date.now();
+  let honeypot = "";
 
   function addSurpriseCharge() {
     if (surpriseCharges.length < 10) {
@@ -51,8 +52,8 @@
     !!city &&
     !!hospitalTier &&
     !!insuranceUsed &&
-    quotedAmount !== null && quotedAmount >= 100 &&
-    finalAmount !== null && finalAmount >= 100 &&
+    quotedAmount !== null && quotedAmount >= 100 && quotedAmount <= 5_000_000 && Number.isInteger(quotedAmount) &&
+    finalAmount !== null && finalAmount >= 100 && finalAmount <= 5_000_000 && Number.isInteger(finalAmount) &&
     procedureYear >= 2015 && procedureYear <= new Date().getFullYear();
 
   $: surprisePct = quotedAmount && finalAmount
@@ -75,6 +76,7 @@
       final_amount: finalAmount,
       procedure_year: procedureYear,
       form_loaded_at: formLoadedAt,
+      honeypot,
     };
 
     if (procedureType === "other") payload.procedure_other = procedureOther.trim();
@@ -116,6 +118,8 @@
     procedureYear = new Date().getFullYear();
     surpriseCharges = [];
     error = "";
+    formLoadedAt = Date.now();
+    honeypot = "";
   }
 </script>
 
@@ -162,6 +166,7 @@
     {/if}
 
     <form on:submit|preventDefault={handleSubmit} class="space-y-8">
+      <input type="text" name="website" bind:value={honeypot} class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true" />
       <!-- Required Fields -->
       <div class="space-y-5">
         <div>
@@ -234,7 +239,7 @@
             <label for="quoted" class="block text-sm font-medium text-ink-500 mb-1.5">Quoted amount</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300 text-sm font-mono">&#8377;</span>
-              <input id="quoted" type="number" bind:value={quotedAmount} min="100" max="5000000"
+              <input id="quoted" type="number" bind:value={quotedAmount} min="100" max="5000000" step="1"
                 placeholder="50,000" class="input-field pl-7 font-mono" />
             </div>
           </div>
@@ -242,7 +247,7 @@
             <label for="final" class="block text-sm font-medium text-ink-500 mb-1.5">Final bill</label>
             <div class="relative">
               <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300 text-sm font-mono">&#8377;</span>
-              <input id="final" type="number" bind:value={finalAmount} min="100" max="5000000"
+              <input id="final" type="number" bind:value={finalAmount} min="100" max="5000000" step="1"
                 placeholder="75,000" class="input-field pl-7 font-mono" />
             </div>
           </div>

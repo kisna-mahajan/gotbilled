@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import {
     getCityData,
     getProcedureData,
@@ -22,6 +23,8 @@
     cities: CityOption[];
     procedures: ProcedureOption[];
     stats: StatsData | null;
+    initialCity: string;
+    initialProcedure: string;
   };
 
   type Tab = "overview" | "calculator" | "absurd" | "feed";
@@ -41,8 +44,16 @@
   let feedHasMore = false;
   let calcResult: CalculatorData | null = null;
 
-  let loading = false;
+  let loadingCity = false;
+  let loadingProcedure = false;
+  let loadingAbsurd = false;
+  let loadingFeed = false;
+  let loadingCalc = false;
+  $: loading = loadingCity || loadingProcedure || loadingAbsurd || loadingFeed || loadingCalc;
+
   let upvotedIds = new Set<string>();
+  let cityRequestId = 0;
+  let procedureRequestId = 0;
 
   const tierLabels: Record<string, string> = {
     corporate_chain: "Corporate Chain",
@@ -52,6 +63,7 @@
   };
 
   function cityName(slug: string): string {
+    if (!slug) return "";
     return slug.split("_").map((w: string) => w[0].toUpperCase() + w.slice(1)).join(" ");
   }
 
@@ -74,51 +86,59 @@
 
   async function loadCityData() {
     if (!filterCity) { cityData = null; return; }
-    loading = true;
+    const reqId = ++cityRequestId;
+    loadingCity = true;
     try {
-      cityData = await getCityData(filterCity);
-    } catch { cityData = null; }
-    loading = false;
+      const result = await getCityData(filterCity);
+      if (reqId === cityRequestId) cityData = result;
+    } catch {
+      if (reqId === cityRequestId) cityData = null;
+    }
+    if (reqId === cityRequestId) loadingCity = false;
   }
 
   async function loadProcedureData() {
     if (!filterProcedure) { procedureData = null; return; }
-    loading = true;
+    const reqId = ++procedureRequestId;
+    loadingProcedure = true;
     try {
-      procedureData = await getProcedureData(filterProcedure);
-    } catch { procedureData = null; }
-    loading = false;
+      const result = await getProcedureData(filterProcedure);
+      if (reqId === procedureRequestId) procedureData = result;
+    } catch {
+      if (reqId === procedureRequestId) procedureData = null;
+    }
+    if (reqId === procedureRequestId) loadingProcedure = false;
   }
 
   async function loadAbsurd(reset = false) {
     if (reset) { absurdPage = 1; absurdItems = []; }
-    loading = true;
+    loadingAbsurd = true;
     try {
       const result = await getAbsurdFeed(absurdPage, 20);
       absurdItems = reset ? result.items : [...absurdItems, ...result.items];
       absurdHasMore = result.has_more;
     } catch { /* ignore */ }
-    loading = false;
+    loadingAbsurd = false;
   }
 
   async function loadFeed(reset = false) {
     if (reset) { feedPage = 1; feedReports = []; }
-    loading = true;
+    loadingFeed = true;
     try {
       const result = await getFeed(feedPage, 20);
       feedReports = reset ? result.reports : [...feedReports, ...result.reports];
       feedHasMore = result.has_more;
     } catch { /* ignore */ }
-    loading = false;
+    loadingFeed = false;
   }
 
   async function loadCalculator() {
     if (!filterProcedure || !filterCity) { calcResult = null; return; }
-    loading = true;
+    loadingCalc = true;
     try {
       calcResult = await getCalculator(filterProcedure, filterCity, filterTier || undefined);
     } catch { calcResult = null; }
-    loading = false;
+    loadingCalc = false;
   }
 
   async function handleUpvote(id: string) {
@@ -140,8 +160,14 @@
     if (tab === "calculator") loadCalculator();
   }
 
-  $: if (filterCity) loadCityData();
-  $: if (filterProcedure) loadProcedureData();
+  $: if (filterCity || filterCity === "") loadCityData();
+  $: if (filterProcedure || filterProcedure === "") loadProcedureData();
+  $: if (activeTab === "calculator") loadCalculator();
+
+  onMount(() => {
+    if (data.initialCity) filterCity = data.initialCity;
+    if (data.initialProcedure) filterProcedure = data.initialProcedure;
+  });
 
   function procedureName(slug: string): string {
     return data.procedures.find((p) => p.slug === slug)?.name || cityName(slug);
@@ -206,7 +232,7 @@
       { id: "absurd", label: "Absurd Charges" },
       { id: "feed", label: "Recent Bills" },
     ] as tab}
-      <button on:click={() => switchTab(tab.id)}
+      <button on:click={() => switchTab(/** @type {Tab} */ (tab.id))}
         class="px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px
           {activeTab === tab.id ? 'border-ink-900 text-ink-900' : 'border-transparent text-ink-300 hover:text-ink-500'}">
         {tab.label}
@@ -310,7 +336,7 @@
           <div class="space-y-2">
             {#each cityData.top_surprise_items as item}
               <div class="flex items-center gap-4 py-2 px-2 -mx-2 rounded-lg">
-                <span class="font-mono font-bold text-lg {surpriseColor(100)}">{fmtCurrency(item.amount)}</span>
+                <span class="font-mono font-bold text-lg text-pop-red">{fmtCurrency(item.amount)}</span>
                 <span class="flex-1 text-sm">&ldquo;{item.description}&rdquo;</span>
                 <span class="text-xs text-ink-200">{item.upvotes} upvotes</span>
               </div>
