@@ -1,0 +1,308 @@
+import { Env, ApiResponse } from "./types";
+import {
+  PROCEDURE_TYPES,
+  CITY_STATE_MAP,
+  MIN_AGGREGATION_THRESHOLD,
+} from "./data";
+
+function jsonResponse<T>(body: ApiResponse<T>, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function handleStats(env: Env): Promise<Response> {
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT COUNT(*) as total_reports,
+              COALESCE(AVG(surprise_percentage), 0) as national_avg_surprise,
+              COALESCE(SUM(final_amount - quoted_amount), 0) as total_overbilled
+       FROM reports WHERE quarantined = 0`
+    ),
+    env.DB.prepare(
+      `SELECT city, SUM(report_count) as reports, AVG(avg_surprise_pct) as avg_surprise
+       FROM aggregates
+       GROUP BY city
+       HAVING SUM(report_count) >= ?
+       ORDER BY reports DESC
+       LIMIT 10`
+    ).bind(MIN_AGGREGATION_THRESHOLD),
+    env.DB.prepare(
+      `SELECT si.description, si.amount, si.upvotes, r.city, r.hospital_tier
+       FROM surprise_items si
+       JOIN reports r ON si.report_id = r.id
+       WHERE r.quarantined = 0
+       ORDER BY si.upvotes DESC
+       LIMIT 1`
+    ),
+    env.DB.prepare(
+      `SELECT COUNT(*) as today_count
+       FROM reports
+       WHERE created_at > datetime('now', '-1 day') AND quarantined = 0`
+    ),
+  ]);
+
+  const overview = results[0].results[0] as Record<string, unknown> | undefined;
+  const cityLeaderboard = results[1].results;
+  const topAbsurd = results[2].results[0] || null;
+  const todayCount = results[3].results[0] as Record<string, unknown> | undefined;
+
+  return jsonResponse({
+    ok: true,
+    data: {
+      total_reports: overview?.total_reports ?? 0,
+      national_avg_surprise: Math.round((overview?.national_avg_surprise as number ?? 0) * 100) / 100,
+      total_overbilled: overview?.total_overbilled ?? 0,
+      today_count: todayCount?.today_count ?? 0,
+      city_leaderboard: cityLeaderboard,
+      top_absurd_charge: topAbsurd,
+    },
+  });
+}
+
+export async function handleCityPage(
+  city: string,
+  env: Env
+): Promise<Response> {
+  if (!(city in CITY_STATE_MAP)) {
+    return jsonResponse({ ok: false, error: "City not found" }, 404);
+  }
+
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT procedure_type, hospital_tier, report_count,
+              avg_quoted, avg_final, avg_surprise_pct,
+              max_surprise_pct, min_surprise_pct
+       FROM aggregates
+       WHERE city = ? AND report_count >= ?
+       ORDER BY report_count DESC`
+    ).bind(city, MIN_AGGREGATION_THRESHOLD),
+    env.DB.prepare(
+      `SELECT si.description, si.amount, si.upvotes, r.procedure_type, r.hospital_tier
+       FROM surprise_items si
+       JOIN reports r ON si.report_id = r.id
+       WHERE r.city = ? AND r.quarantined = 0
+       ORDER BY si.upvotes DESC
+       LIMIT 10`
+    ).bind(city),
+    env.DB.prepare(
+      `SELECT COUNT(*) as total,
+              AVG(surprise_percentage) as avg_surprise,
+              AVG(quoted_amount) as avg_quoted,
+              AVG(final_amount) as avg_final
+       FROM reports
+       WHERE city = ? AND quarantined = 0`
+    ).bind(city),
+  ]);
+
+  return jsonResponse({
+    ok: true,
+    data: {
+      city,
+      state: CITY_STATE_MAP[city],
+      aggregates: results[0].results,
+      top_surprise_items: results[1].results,
+      overview: results[2].results[0] || null,
+    },
+  });
+}
+
+export async function handleProcedurePage(
+  procedure: string,
+  env: Env
+): Promise<Response> {
+  if (!(procedure in PROCEDURE_TYPES)) {
+    return jsonResponse({ ok: false, error: "Procedure not found" }, 404);
+  }
+
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT city, hospital_tier, report_count,
+              avg_quoted, avg_final, avg_surprise_pct,
+              max_surprise_pct, min_surprise_pct
+       FROM aggregates
+       WHERE procedure_type = ? AND report_count >= ?
+       ORDER BY avg_surprise_pct DESC`
+    ).bind(procedure, MIN_AGGREGATION_THRESHOLD),
+    env.DB.prepare(
+      `SELECT COUNT(*) as total,
+              AVG(surprise_percentage) as avg_surprise,
+              AVG(quoted_amount) as avg_quoted,
+              AVG(final_amount) as avg_final
+       FROM reports
+       WHERE procedure_type = ? AND quarantined = 0`
+    ).bind(procedure),
+  ]);
+
+  return jsonResponse({
+    ok: true,
+    data: {
+      procedure,
+      display_name: PROCEDURE_TYPES[procedure],
+      aggregates: results[0].results,
+      overview: results[1].results[0] || null,
+    },
+  });
+}
+
+export async function handleAbsurdFeed(
+  url: URL,
+  env: Env
+): Promise<Response> {
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
+  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
+  const offset = (page - 1) * limit;
+
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT si.id, si.description, si.amount, si.upvotes, si.created_at,
+              r.city, r.hospital_tier, r.procedure_type
+       FROM surprise_items si
+       JOIN reports r ON si.report_id = r.id
+       WHERE r.quarantined = 0
+       ORDER BY si.upvotes DESC, si.created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(limit, offset),
+    env.DB.prepare(
+      `SELECT COUNT(*) as total
+       FROM surprise_items si
+       JOIN reports r ON si.report_id = r.id
+       WHERE r.quarantined = 0`
+    ),
+  ]);
+
+  const total = (results[1].results[0] as Record<string, unknown>)?.total as number ?? 0;
+
+  return jsonResponse({
+    ok: true,
+    data: {
+      items: results[0].results,
+      page,
+      limit,
+      total,
+      has_more: offset + limit < total,
+    },
+  });
+}
+
+export async function handleCalculator(
+  url: URL,
+  env: Env
+): Promise<Response> {
+  const procedure = url.searchParams.get("procedure");
+  const city = url.searchParams.get("city");
+  const tier = url.searchParams.get("tier");
+
+  if (!procedure || !city) {
+    return jsonResponse(
+      { ok: false, error: "procedure and city are required" },
+      400
+    );
+  }
+
+  let query = `SELECT report_count, avg_quoted, avg_final, avg_surprise_pct,
+                      max_surprise_pct, min_surprise_pct
+               FROM aggregates
+               WHERE procedure_type = ? AND city = ? AND report_count >= ?`;
+  const bindings: (string | number)[] = [procedure, city, MIN_AGGREGATION_THRESHOLD];
+
+  if (tier) {
+    query += " AND hospital_tier = ?";
+    bindings.push(tier);
+  }
+
+  const result = await env.DB.prepare(query).bind(...bindings).all();
+
+  if (result.results.length === 0) {
+    return jsonResponse({
+      ok: true,
+      data: { available: false, message: "Not enough data for this combination yet" },
+    });
+  }
+
+  let totalCount = 0;
+  let weightedQuoted = 0;
+  let weightedFinal = 0;
+  let weightedSurprise = 0;
+  let maxSurprise = -Infinity;
+  let minSurprise = Infinity;
+
+  for (const row of result.results) {
+    const r = row as Record<string, number>;
+    totalCount += r.report_count;
+    weightedQuoted += r.avg_quoted * r.report_count;
+    weightedFinal += r.avg_final * r.report_count;
+    weightedSurprise += r.avg_surprise_pct * r.report_count;
+    maxSurprise = Math.max(maxSurprise, r.max_surprise_pct);
+    minSurprise = Math.min(minSurprise, r.min_surprise_pct);
+  }
+
+  return jsonResponse({
+    ok: true,
+    data: {
+      available: true,
+      report_count: totalCount,
+      avg_quoted: Math.round(weightedQuoted / totalCount),
+      avg_final: Math.round(weightedFinal / totalCount),
+      avg_surprise_pct: Math.round((weightedSurprise / totalCount) * 100) / 100,
+      max_surprise_pct: Math.round(maxSurprise * 100) / 100,
+      min_surprise_pct: Math.round(minSurprise * 100) / 100,
+    },
+  });
+}
+
+export async function handleFeed(url: URL, env: Env): Promise<Response> {
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
+  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
+  const offset = (page - 1) * limit;
+
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT id, procedure_type, city, state, hospital_tier, insurance_used,
+              quoted_amount, final_amount, surprise_percentage, procedure_year, created_at
+       FROM reports
+       WHERE quarantined = 0
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`
+    ).bind(limit, offset),
+    env.DB.prepare(
+      `SELECT COUNT(*) as total FROM reports WHERE quarantined = 0`
+    ),
+  ]);
+
+  const total = (results[1].results[0] as Record<string, unknown>)?.total as number ?? 0;
+
+  return jsonResponse({
+    ok: true,
+    data: {
+      reports: results[0].results,
+      page,
+      limit,
+      total,
+      has_more: offset + limit < total,
+    },
+  });
+}
+
+export async function handleCities(): Promise<Response> {
+  const cities = Object.entries(CITY_STATE_MAP).map(([slug, state]) => ({
+    slug,
+    name: slug
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" "),
+    state,
+  }));
+
+  return jsonResponse({ ok: true, data: cities });
+}
+
+export async function handleProcedures(): Promise<Response> {
+  const procedures = Object.entries(PROCEDURE_TYPES).map(([slug, name]) => ({
+    slug,
+    name,
+  }));
+
+  return jsonResponse({ ok: true, data: procedures });
+}

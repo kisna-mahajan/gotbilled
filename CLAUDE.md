@@ -75,10 +75,17 @@ gotbilled/
 ├── gotbilled-project-brief.md         ← full product spec
 ├── gotbilled-planning-document.md     ← approved planning document
 ├── wrangler.toml                      ← Cloudflare Worker config with D1 binding
+├── package.json                       ← npm scripts (dev, deploy, db:migrate)
+├── tsconfig.json                      ← TypeScript config (ES2022, strict)
 ├── migrations/
 │   └── 0001_initial_schema.sql        ← D1 schema (deployed)
-└── src/                               ← (not yet created)
-    └── worker.ts                      ← (not yet created) API Worker entry point
+└── src/
+    ├── worker.ts                      ← API Worker entry point (URL routing, CORS, error handling)
+    ├── types.ts                       ← TypeScript interfaces (Env, ReportInput, row types)
+    ├── data.ts                        ← Constants (procedure types, cities, hospital tiers, limits)
+    ├── validation.ts                  ← validateReport() — honeypot, timing, field checks, structural flagging
+    ├── submit.ts                      ← handleSubmit() + handleUpvote() — IP hash, rate limit, D1 writes, aggregates
+    └── read.ts                        ← Read endpoints — stats, city, procedure, absurd feed, calculator, feed
 ```
 
 ## Build Progress
@@ -93,11 +100,13 @@ gotbilled/
 - [x] Database schema designed and deployed to remote D1 (5 tables, 7 indexes)
 - [x] `wrangler.toml` configured with D1 binding
 - [x] Architecture diagram created (see artifact)
+- [x] Project scaffolding (package.json, tsconfig.json, .gitignore)
+- [x] API Worker — submission endpoint with validation gauntlet (honeypot, timing, IP rate limit, structural flagging, D1 batch writes, incremental aggregate updates)
+- [x] API Worker — read endpoints (stats, city page, procedure page, absurd feed, calculator, recent feed, cities list, procedures list)
+- [x] API Worker — upvote endpoint with IP-hash dedup
 
 ### Next Up
 
-- [ ] **API Worker** — submission endpoint with full validation gauntlet (Turnstile, honeypot, timing, IP rate limit, structural checks)
-- [ ] **API Worker** — read endpoints (homepage stats, city page, procedure page, absurd feed, calculator)
 - [ ] **Queue setup** — create Cloudflare Queue, wire up producer (API Worker) and consumer (batch writer)
 - [ ] **KV namespace** — create and configure for caching
 - [ ] **Frontend** — SvelteKit project scaffolding with Cloudflare Pages adapter
