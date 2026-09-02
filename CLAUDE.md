@@ -40,6 +40,8 @@ Two documents define the product:
 - **Schema deployed:** Yes — all 5 tables and 7 indexes created on remote D1
 - **KV namespace:** `CACHE` (ID: `ce40d4a2eb984d9d8efe68ac6b8c414f`) — created, wired into Worker
 - **Queue:** `gotbilled-submissions` — created, wired as producer + consumer in Worker
+- **Worker URL:** `https://gotbilled.gotbilled.workers.dev` — deployed and live
+- **Workers subdomain:** `gotbilled.workers.dev`
 - Turnstile site key: Not yet configured
 - R2 bucket: Not yet created
 
