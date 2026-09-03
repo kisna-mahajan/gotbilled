@@ -31,6 +31,12 @@
   };
 
   type Tab = "overview" | "calculator" | "absurd" | "feed";
+  const tabDefs: { id: Tab; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "calculator", label: "Calculator" },
+    { id: "absurd", label: "Absurd Charges" },
+    { id: "feed", label: "Recent Bills" },
+  ];
   let activeTab: Tab = "overview";
 
   let filterCity = "";
@@ -183,7 +189,7 @@
   $: if (filterCity || filterCity === "") loadCityData();
   $: { filterCategory; filterProcedure; loadCategoryData(); }
   $: if (filterProcedure || filterProcedure === "") loadProcedureData();
-  $: if (activeTab === "calculator") loadCalculator();
+  $: if (activeTab === "calculator") { filterProcedure; filterCity; filterTier; loadCalculator(); }
 
   onMount(() => {
     if (data.initialCity) filterCity = data.initialCity;
@@ -214,7 +220,7 @@
   }
 
   function timeAgo(dateStr: string): string {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = Date.now() - new Date(dateStr.replace(" ", "T") + "Z").getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return `${mins}m ago`;
     const hrs = Math.floor(mins / 60);
@@ -284,13 +290,8 @@
 
   <!-- Tabs -->
   <div class="flex gap-1 border-b border-ink-50 mb-8">
-    {#each [
-      { id: "overview", label: "Overview" },
-      { id: "calculator", label: "Calculator" },
-      { id: "absurd", label: "Absurd Charges" },
-      { id: "feed", label: "Recent Bills" },
-    ] as tab}
-      <button on:click={() => switchTab(/** @type {Tab} */ (tab.id))}
+    {#each tabDefs as tab}
+      <button on:click={() => switchTab(tab.id)}
         class="px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px
           {activeTab === tab.id ? 'border-ink-900 text-ink-900' : 'border-transparent text-ink-300 hover:text-ink-500'}">
         {tab.label}

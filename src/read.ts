@@ -57,7 +57,8 @@ export async function handleStats(env: Env): Promise<Response> {
          FROM reports WHERE quarantined = 0`
       ),
       env.DB.prepare(
-        `SELECT city, SUM(report_count) as reports, AVG(avg_surprise_pct) as avg_surprise
+        `SELECT city, SUM(report_count) as reports,
+                SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise
          FROM aggregates
          GROUP BY city
          HAVING SUM(report_count) >= ?
@@ -264,11 +265,12 @@ export async function handleAbsurdFeed(
   url: URL,
   env: Env
 ): Promise<Response> {
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1") || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20") || 20));
   const offset = (page - 1) * limit;
 
-  return cachedResponse(env, `absurd:${page}:${limit}`, CACHE_TTL.absurd, async () => {
+  const cacheKey = page === 1 && limit === 20 ? "absurd" : `absurd:${page}:${limit}`;
+  return cachedResponse(env, cacheKey, CACHE_TTL.absurd, async () => {
     const results = await env.DB.batch([
       env.DB.prepare(
         `SELECT si.id, si.description, si.amount, si.upvotes, si.created_at,
@@ -364,11 +366,12 @@ export async function handleCalculator(
 }
 
 export async function handleFeed(url: URL, env: Env): Promise<Response> {
-  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
-  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
+  const page = Math.max(1, parseInt(url.searchParams.get("page") || "1") || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20") || 20));
   const offset = (page - 1) * limit;
 
-  return cachedResponse(env, `feed:${page}:${limit}`, CACHE_TTL.feed, async () => {
+  const feedCacheKey = page === 1 && limit === 20 ? "feed" : `feed:${page}:${limit}`;
+  return cachedResponse(env, feedCacheKey, CACHE_TTL.feed, async () => {
     const results = await env.DB.batch([
       env.DB.prepare(
         `SELECT id, procedure_type, city, state, hospital_tier, insurance_used,

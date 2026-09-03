@@ -1,5 +1,5 @@
 import { Env, ReportInput, ApiResponse, QueueMessage } from "./types";
-import { CITY_STATE_MAP, RATE_LIMIT_PER_DAY } from "./data";
+import { CITY_STATE_MAP, RATE_LIMIT_PER_DAY, PROCEDURE_CATEGORIES } from "./data";
 import { validateReport } from "./validation";
 
 async function hashIP(ip: string, salt: string): Promise<string> {
@@ -119,8 +119,8 @@ export async function handleUpvote(
   try {
     await env.DB.batch([
       env.DB.prepare(
-        `INSERT INTO upvote_tracking (id, item_id, ip_hash) VALUES (?, ?, ?)`
-      ).bind(crypto.randomUUID(), itemId, ipHash),
+        `INSERT INTO upvote_tracking (item_id, ip_hash) VALUES (?, ?)`
+      ).bind(itemId, ipHash),
       env.DB.prepare(
         `UPDATE surprise_items SET upvotes = upvotes + 1 WHERE id = ?`
       ).bind(itemId),
@@ -209,8 +209,8 @@ export async function processQueueBatch(
     if (m.flagged) {
       statements.push(
         env.DB.prepare(
-          `INSERT INTO moderation_log (id, report_id, reason, auto_action)
-           VALUES (?, ?, ?, 'flagged')`
+          `INSERT INTO moderation_log (id, report_id, field_name, original_text, redaction_reason)
+           VALUES (?, ?, 'auto_flag', ?, 'pii')`
         ).bind(crypto.randomUUID(), m.reportId, m.flagReasons.join(", "))
       );
     }
@@ -224,6 +224,19 @@ export async function processQueueBatch(
 
     keysToInvalidate.add(`city:${m.city}`);
     keysToInvalidate.add(`procedure:${m.procedureType}`);
+
+    const procToCat: Record<string, string> = {};
+    for (const [catSlug, cat] of Object.entries(PROCEDURE_CATEGORIES)) {
+      for (const procSlug of Object.keys(cat.procedures)) {
+        procToCat[procSlug] = catSlug;
+      }
+    }
+    const cat = procToCat[m.procedureType];
+    if (cat) keysToInvalidate.add(`category:${cat}`);
+
+    keysToInvalidate.add(`calculator:${m.procedureType}:${m.city}`);
+    keysToInvalidate.add(`calculator:${m.procedureType}:${m.city}:${m.hospitalTier}`);
+
     if (m.surpriseCharges.length > 0) {
       keysToInvalidate.add("absurd");
     }
