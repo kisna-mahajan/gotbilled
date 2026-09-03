@@ -168,7 +168,7 @@
 <div class="border-t border-ink-50"></div>
 <section class="max-w-5xl mx-auto px-6 py-16 text-center">
   <p class="text-ink-300 text-sm mb-4">
-    Free, anonymous, ad-free. Running costs ~&#8377;1,300/month.
+    Free, anonymous, ad-free. Help keep it that way.
   </p>
   <a href="/donate" class="text-sm font-medium text-ink-500 hover:text-ink-900 transition-colors">
     Help keep this running &rarr;

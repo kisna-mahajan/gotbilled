@@ -50,6 +50,8 @@ export interface CityOption {
 export interface ProcedureOption {
   slug: string;
   name: string;
+  category: string;
+  categoryName: string;
 }
 
 export interface SubmitResult {

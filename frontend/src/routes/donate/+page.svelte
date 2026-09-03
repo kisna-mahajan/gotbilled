@@ -17,7 +17,7 @@
   <h1 class="text-3xl md:text-4xl font-black tracking-tight mb-4">Keep this running</h1>
   <p class="text-ink-300 leading-relaxed mb-10">
     gotbilled.in is free, anonymous, and ad-free. No logins, no tracking, no data selling.
-    Running the servers costs about &#8377;1,300/month. If this project helps you, consider chipping in.
+    There are domain and server costs to keep this up. If this helps you, consider chipping in.
   </p>
 
   <div class="space-y-4 mb-12">
@@ -56,15 +56,11 @@
     <ul class="text-sm text-ink-500 space-y-1.5">
       <li class="flex items-start gap-2">
         <span class="text-ink-300 mt-0.5">&#8226;</span>
-        <span>Cloudflare Workers, D1, KV, Queue — server costs (~&#8377;1,300/mo)</span>
+        <span>Domain and server costs</span>
       </li>
       <li class="flex items-start gap-2">
         <span class="text-ink-300 mt-0.5">&#8226;</span>
-        <span>Domain renewal (gotbilled.in)</span>
-      </li>
-      <li class="flex items-start gap-2">
-        <span class="text-ink-300 mt-0.5">&#8226;</span>
-        <span>Zero profit. Fully transparent. Open source.</span>
+        <span>Zero profit. This is a community project.</span>
       </li>
     </ul>
   </div>

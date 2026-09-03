@@ -4,6 +4,24 @@
 
   export let data: { cities: CityOption[]; procedures: ProcedureOption[] };
 
+  interface CategoryGroup {
+    slug: string;
+    name: string;
+    procedures: ProcedureOption[];
+  }
+
+  $: procedureCategories = (() => {
+    const map = new Map<string, CategoryGroup>();
+    for (const proc of data.procedures) {
+      if (proc.slug === "other") continue;
+      if (!map.has(proc.category)) {
+        map.set(proc.category, { slug: proc.category, name: proc.categoryName, procedures: [] });
+      }
+      map.get(proc.category)!.procedures.push(proc);
+    }
+    return [...map.values()];
+  })();
+
   const hospitalTiers = [
     { value: "corporate_chain", label: "Corporate Chain" },
     { value: "private_standalone", label: "Private Standalone" },
@@ -15,6 +33,7 @@
     { value: "no", label: "No" },
     { value: "yes", label: "Yes, full" },
     { value: "partial", label: "Partial" },
+    { value: "govt_scheme", label: "Govt scheme" },
   ];
 
   let submitting = false;
@@ -173,9 +192,14 @@
           <label for="procedure" class="block text-sm font-medium text-ink-500 mb-1.5">Procedure</label>
           <select id="procedure" bind:value={procedureType} class="select-field">
             <option value="">Select procedure type</option>
-            {#each data.procedures as proc}
-              <option value={proc.slug}>{proc.name}</option>
+            {#each procedureCategories as cat}
+              <optgroup label={cat.name}>
+                {#each cat.procedures as proc}
+                  <option value={proc.slug}>{proc.name}</option>
+                {/each}
+              </optgroup>
             {/each}
+            <option value="other">Other</option>
           </select>
         </div>
 
@@ -223,7 +247,7 @@
         <div>
           <!-- svelte-ignore a11y-label-has-associated-control -->
           <label class="block text-sm font-medium text-ink-500 mb-1.5">Insurance used?</label>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 gap-2">
             {#each insuranceOptions as opt}
               <label class="flex items-center justify-center border rounded-xl py-2.5 cursor-pointer transition-colors text-sm font-medium
                 {insuranceUsed === opt.value ? 'border-ink-900 bg-ink-50' : 'border-ink-100 hover:border-ink-200'}">
@@ -300,13 +324,14 @@
             {#if surpriseCharges.length === 0}
               <button type="button" on:click={addSurpriseCharge}
                 class="w-full border border-dashed border-ink-100 rounded-xl py-3 text-sm text-ink-200 hover:text-ink-500 hover:border-ink-200 transition-colors">
-                Add charges that caught you off guard
+                e.g. PPE kit, gloves &amp; syringes, extra nursing charges
               </button>
             {/if}
 
             {#each surpriseCharges as charge, i}
+              {@const placeholders = ["e.g. PPE kit", "e.g. Gloves & syringes", "e.g. Nursing charges"]}
               <div class="flex gap-2 mb-2">
-                <input type="text" bind:value={charge.description} maxlength="200" placeholder="What was it?"
+                <input type="text" bind:value={charge.description} maxlength="200" placeholder={placeholders[i] || "What was it?"}
                   class="input-field flex-1 text-sm" />
                 <div class="relative w-28">
                   <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-300 text-xs font-mono">&#8377;</span>

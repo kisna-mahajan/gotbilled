@@ -169,6 +169,24 @@
     if (data.initialProcedure) filterProcedure = data.initialProcedure;
   });
 
+  interface CategoryGroup {
+    slug: string;
+    name: string;
+    procedures: ProcedureOption[];
+  }
+
+  $: procedureCategories = (() => {
+    const map = new Map<string, CategoryGroup>();
+    for (const proc of data.procedures) {
+      if (proc.slug === "other") continue;
+      if (!map.has(proc.category)) {
+        map.set(proc.category, { slug: proc.category, name: proc.categoryName, procedures: [] });
+      }
+      map.get(proc.category)!.procedures.push(proc);
+    }
+    return [...map.values()];
+  })();
+
   function procedureName(slug: string): string {
     return data.procedures.find((p) => p.slug === slug)?.name || cityName(slug);
   }
@@ -203,9 +221,14 @@
 
     <select bind:value={filterProcedure} class="select-field max-w-[14rem] text-sm">
       <option value="">All procedures</option>
-      {#each data.procedures as p}
-        <option value={p.slug}>{p.name}</option>
+      {#each procedureCategories as cat}
+        <optgroup label={cat.name}>
+          {#each cat.procedures as p}
+            <option value={p.slug}>{p.name}</option>
+          {/each}
+        </optgroup>
       {/each}
+      <option value="other">Other</option>
     </select>
 
     <select bind:value={filterTier} class="select-field max-w-[12rem] text-sm">

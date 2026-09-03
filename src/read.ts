@@ -1,6 +1,7 @@
 import { Env, ApiResponse } from "./types";
 import {
   PROCEDURE_TYPES,
+  PROCEDURE_CATEGORIES,
   CITY_STATE_MAP,
   MIN_AGGREGATION_THRESHOLD,
 } from "./data";
@@ -326,10 +327,21 @@ export async function handleCities(): Promise<Response> {
 }
 
 export async function handleProcedures(): Promise<Response> {
-  const procedures = Object.entries(PROCEDURE_TYPES).map(([slug, name]) => ({
-    slug,
-    name,
-  }));
+  const procedures = Object.entries(PROCEDURE_CATEGORIES).flatMap(
+    ([catSlug, cat]) =>
+      Object.entries(cat.procedures).map(([slug, name]) => ({
+        slug,
+        name,
+        category: catSlug,
+        categoryName: cat.name,
+      }))
+  );
+  procedures.push({
+    slug: "other",
+    name: "Other",
+    category: "other",
+    categoryName: "Other",
+  });
 
   return jsonResponse({ ok: true, data: procedures });
 }
