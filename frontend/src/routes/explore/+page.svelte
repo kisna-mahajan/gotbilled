@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import {
     getCityData,
+    getCategoryData,
     getProcedureData,
     getAbsurdFeed,
     getCalculator,
@@ -13,6 +14,7 @@
     ProcedureOption,
     StatsData,
     CityData,
+    CategoryData,
     ProcedureData,
     AbsurdItem,
     FeedReport,
@@ -24,6 +26,7 @@
     procedures: ProcedureOption[];
     stats: StatsData | null;
     initialCity: string;
+    initialCategory: string;
     initialProcedure: string;
   };
 
@@ -31,10 +34,12 @@
   let activeTab: Tab = "overview";
 
   let filterCity = "";
+  let filterCategory = "";
   let filterProcedure = "";
   let filterTier = "";
 
   let cityData: CityData | null = null;
+  let categoryData: CategoryData | null = null;
   let procedureData: ProcedureData | null = null;
   let absurdItems: AbsurdItem[] = [];
   let absurdPage = 1;
@@ -45,14 +50,16 @@
   let calcResult: CalculatorData | null = null;
 
   let loadingCity = false;
+  let loadingCategory = false;
   let loadingProcedure = false;
   let loadingAbsurd = false;
   let loadingFeed = false;
   let loadingCalc = false;
-  $: loading = loadingCity || loadingProcedure || loadingAbsurd || loadingFeed || loadingCalc;
+  $: loading = loadingCity || loadingCategory || loadingProcedure || loadingAbsurd || loadingFeed || loadingCalc;
 
   let upvotedIds = new Set<string>();
   let cityRequestId = 0;
+  let categoryRequestId = 0;
   let procedureRequestId = 0;
 
   const tierLabels: Record<string, string> = {
@@ -95,6 +102,19 @@
       if (reqId === cityRequestId) cityData = null;
     }
     if (reqId === cityRequestId) loadingCity = false;
+  }
+
+  async function loadCategoryData() {
+    if (!filterCategory || filterProcedure) { categoryData = null; return; }
+    const reqId = ++categoryRequestId;
+    loadingCategory = true;
+    try {
+      const result = await getCategoryData(filterCategory);
+      if (reqId === categoryRequestId) categoryData = result;
+    } catch {
+      if (reqId === categoryRequestId) categoryData = null;
+    }
+    if (reqId === categoryRequestId) loadingCategory = false;
   }
 
   async function loadProcedureData() {
@@ -161,11 +181,13 @@
   }
 
   $: if (filterCity || filterCity === "") loadCityData();
+  $: { filterCategory; filterProcedure; loadCategoryData(); }
   $: if (filterProcedure || filterProcedure === "") loadProcedureData();
   $: if (activeTab === "calculator") loadCalculator();
 
   onMount(() => {
     if (data.initialCity) filterCity = data.initialCity;
+    if (data.initialCategory) filterCategory = data.initialCategory;
     if (data.initialProcedure) filterProcedure = data.initialProcedure;
   });
 
@@ -219,16 +241,29 @@
       {/each}
     </select>
 
-    <select bind:value={filterProcedure} class="select-field max-w-[14rem] text-sm">
-      <option value="">All procedures</option>
+    <select bind:value={filterCategory} on:change={() => { filterProcedure = ""; procedureData = null; }} class="select-field max-w-[14rem] text-sm">
+      <option value="">All categories</option>
       {#each procedureCategories as cat}
-        <optgroup label={cat.name}>
-          {#each cat.procedures as p}
-            <option value={p.slug}>{p.name}</option>
-          {/each}
-        </optgroup>
+        <option value={cat.slug}>{cat.name}</option>
       {/each}
-      <option value="other">Other</option>
+    </select>
+
+    <select bind:value={filterProcedure} class="select-field max-w-[14rem] text-sm">
+      <option value="">{filterCategory ? "All in category" : "All procedures"}</option>
+      {#if filterCategory}
+        {#each procedureCategories.find(c => c.slug === filterCategory)?.procedures || [] as p}
+          <option value={p.slug}>{p.name}</option>
+        {/each}
+      {:else}
+        {#each procedureCategories as cat}
+          <optgroup label={cat.name}>
+            {#each cat.procedures as p}
+              <option value={p.slug}>{p.name}</option>
+            {/each}
+          </optgroup>
+        {/each}
+        <option value="other">Other</option>
+      {/if}
     </select>
 
     <select bind:value={filterTier} class="select-field max-w-[12rem] text-sm">
@@ -239,8 +274,8 @@
       <option value="trust">Trust / Charity</option>
     </select>
 
-    {#if filterCity || filterProcedure || filterTier}
-      <button on:click={() => { filterCity = ""; filterProcedure = ""; filterTier = ""; cityData = null; procedureData = null; calcResult = null; }}
+    {#if filterCity || filterCategory || filterProcedure || filterTier}
+      <button on:click={() => { filterCity = ""; filterCategory = ""; filterProcedure = ""; filterTier = ""; cityData = null; categoryData = null; procedureData = null; calcResult = null; }}
         class="text-xs text-ink-300 hover:text-ink-900 transition-colors px-3 py-2">
         Clear filters
       </button>
@@ -270,7 +305,7 @@
   <!-- OVERVIEW TAB -->
   {#if activeTab === "overview"}
     <!-- National stats -->
-    {#if data.stats && !filterCity && !filterProcedure}
+    {#if data.stats && !filterCity && !filterCategory && !filterProcedure}
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
         <div>
           <div class="text-3xl md:text-4xl font-black font-mono tabular-nums">{data.stats.total_reports.toLocaleString("en-IN")}</div>
@@ -369,6 +404,68 @@
       </div>
     {/if}
 
+    <!-- Category deep-dive -->
+    {#if filterCategory && !filterProcedure && categoryData}
+      <div class="mb-12">
+        <h2 class="text-xl font-bold mb-6">{categoryData.display_name}</h2>
+
+        {#if categoryData.overview}
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+            <div>
+              <div class="text-2xl font-black font-mono tabular-nums">{categoryData.overview.total.toLocaleString("en-IN")}</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Reports</div>
+            </div>
+            <div>
+              <div class="text-2xl font-black font-mono tabular-nums {surpriseColor(categoryData.overview.avg_surprise)}">{Math.round(categoryData.overview.avg_surprise)}%</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg surprise</div>
+            </div>
+            <div>
+              <div class="text-2xl font-black font-mono tabular-nums">{shortCurrency(Math.round(categoryData.overview.avg_quoted))}</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg quoted</div>
+            </div>
+            <div>
+              <div class="text-2xl font-black font-mono tabular-nums">{shortCurrency(Math.round(categoryData.overview.avg_final))}</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg final</div>
+            </div>
+          </div>
+        {/if}
+
+        {#if categoryData.aggregates.length > 0}
+          <h3 class="text-sm text-ink-300 uppercase tracking-widest mb-3">By city &amp; tier</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-ink-300 text-xs uppercase tracking-wider">
+                  <th class="pb-2 pr-4">City</th>
+                  <th class="pb-2 pr-4">Tier</th>
+                  <th class="pb-2 pr-4 text-right">Reports</th>
+                  <th class="pb-2 pr-4 text-right">Avg Quoted</th>
+                  <th class="pb-2 pr-4 text-right">Avg Final</th>
+                  <th class="pb-2 text-right">Surprise</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each categoryData.aggregates as row}
+                  <tr class="border-t border-ink-50">
+                    <td class="py-2.5 pr-4 font-medium">{cityName(row.city)}</td>
+                    <td class="py-2.5 pr-4 text-ink-300">{tierLabels[row.hospital_tier] || row.hospital_tier}</td>
+                    <td class="py-2.5 pr-4 text-right font-mono tabular-nums">{row.report_count}</td>
+                    <td class="py-2.5 pr-4 text-right font-mono tabular-nums">{shortCurrency(Math.round(row.avg_quoted))}</td>
+                    <td class="py-2.5 pr-4 text-right font-mono tabular-nums">{shortCurrency(Math.round(row.avg_final))}</td>
+                    <td class="py-2.5 text-right font-mono font-bold tabular-nums {surpriseColor(row.avg_surprise_pct)}">
+                      {row.avg_surprise_pct > 0 ? "+" : ""}{Math.round(row.avg_surprise_pct)}%
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else}
+          <p class="text-ink-200 text-sm py-4">Not enough data for this category yet.</p>
+        {/if}
+      </div>
+    {/if}
+
     <!-- Procedure deep-dive -->
     {#if filterProcedure && procedureData}
       <div class="mb-12">
@@ -432,7 +529,7 @@
     {/if}
 
     <!-- City leaderboard (when no filter) -->
-    {#if !filterCity && !filterProcedure && data.stats?.city_leaderboard && data.stats.city_leaderboard.length > 0}
+    {#if !filterCity && !filterCategory && !filterProcedure && data.stats?.city_leaderboard && data.stats.city_leaderboard.length > 0}
       <div class="mb-12">
         <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">City leaderboard</h2>
         <div class="space-y-0.5">
@@ -451,7 +548,7 @@
       </div>
     {/if}
 
-    {#if !data.stats && !filterCity && !filterProcedure}
+    {#if !data.stats && !filterCity && !filterCategory && !filterProcedure}
       <div class="text-center py-16">
         <p class="text-xl font-bold mb-2">No data yet.</p>
         <p class="text-ink-300 text-sm mb-6">Be the first to share a bill.</p>

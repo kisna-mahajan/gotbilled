@@ -117,6 +117,18 @@ export interface ProcedureData {
   } | null;
 }
 
+export interface CategoryData {
+  category: string;
+  display_name: string;
+  aggregates: AggregateRow[];
+  overview: {
+    total: number;
+    avg_surprise: number;
+    avg_quoted: number;
+    avg_final: number;
+  } | null;
+}
+
 export interface AbsurdItem {
   id?: string;
   description: string;
@@ -175,6 +187,10 @@ export function getCityData(city: string) {
 
 export function getProcedureData(procedure: string) {
   return fetchApi<ProcedureData>(`/api/procedure/${procedure}`);
+}
+
+export function getCategoryData(category: string) {
+  return fetchApi<CategoryData>(`/api/category/${category}`);
 }
 
 export function getAbsurdFeed(page = 1, limit = 20) {

@@ -178,6 +178,52 @@ export async function handleProcedurePage(
   });
 }
 
+export async function handleCategoryPage(
+  category: string,
+  env: Env
+): Promise<Response> {
+  if (!(category in PROCEDURE_CATEGORIES)) {
+    return jsonResponse({ ok: false, error: "Category not found" }, 404);
+  }
+
+  const procedureSlugs = Object.keys(PROCEDURE_CATEGORIES[category].procedures);
+  const placeholders = procedureSlugs.map(() => "?").join(",");
+
+  return cachedResponse(env, `category:${category}`, CACHE_TTL.procedure, async () => {
+    const results = await env.DB.batch([
+      env.DB.prepare(
+        `SELECT city, hospital_tier,
+                SUM(report_count) as report_count,
+                SUM(avg_quoted * report_count) / SUM(report_count) as avg_quoted,
+                SUM(avg_final * report_count) / SUM(report_count) as avg_final,
+                SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise_pct,
+                MAX(max_surprise_pct) as max_surprise_pct,
+                MIN(min_surprise_pct) as min_surprise_pct
+         FROM aggregates
+         WHERE procedure_type IN (${placeholders})
+         GROUP BY city, hospital_tier
+         HAVING SUM(report_count) >= ?
+         ORDER BY SUM(report_count) DESC`
+      ).bind(...procedureSlugs, MIN_AGGREGATION_THRESHOLD),
+      env.DB.prepare(
+        `SELECT COUNT(*) as total,
+                AVG(surprise_percentage) as avg_surprise,
+                AVG(quoted_amount) as avg_quoted,
+                AVG(final_amount) as avg_final
+         FROM reports
+         WHERE procedure_type IN (${placeholders}) AND quarantined = 0`
+      ).bind(...procedureSlugs),
+    ]);
+
+    return {
+      category,
+      display_name: PROCEDURE_CATEGORIES[category].name,
+      aggregates: results[0].results,
+      overview: results[1].results[0] || null,
+    };
+  });
+}
+
 export async function handleAbsurdFeed(
   url: URL,
   env: Env

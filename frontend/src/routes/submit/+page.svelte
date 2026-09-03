@@ -41,6 +41,7 @@
   let success = false;
   let resultData: { id: string; surprise_percentage: number } | null = null;
 
+  let selectedCategory = "";
   let procedureType = "";
   let procedureOther = "";
   let city = "";
@@ -126,6 +127,7 @@
   function reset() {
     success = false;
     resultData = null;
+    selectedCategory = "";
     procedureType = "";
     procedureOther = "";
     city = "";
@@ -189,21 +191,29 @@
       <!-- Required Fields -->
       <div class="space-y-5">
         <div>
-          <label for="procedure" class="block text-sm font-medium text-ink-500 mb-1.5">Procedure</label>
-          <select id="procedure" bind:value={procedureType} class="select-field">
-            <option value="">Select procedure type</option>
+          <label for="category" class="block text-sm font-medium text-ink-500 mb-1.5">Procedure category</label>
+          <select id="category" bind:value={selectedCategory} on:change={() => { procedureType = selectedCategory === "other" ? "other" : ""; procedureOther = ""; }} class="select-field">
+            <option value="">Select category</option>
             {#each procedureCategories as cat}
-              <optgroup label={cat.name}>
-                {#each cat.procedures as proc}
-                  <option value={proc.slug}>{proc.name}</option>
-                {/each}
-              </optgroup>
+              <option value={cat.slug}>{cat.name}</option>
             {/each}
             <option value="other">Other</option>
           </select>
         </div>
 
-        {#if procedureType === "other"}
+        {#if selectedCategory && selectedCategory !== "other"}
+          <div>
+            <label for="procedure" class="block text-sm font-medium text-ink-500 mb-1.5">Procedure</label>
+            <select id="procedure" bind:value={procedureType} class="select-field">
+              <option value="">Select procedure</option>
+              {#each procedureCategories.find(c => c.slug === selectedCategory)?.procedures || [] as proc}
+                <option value={proc.slug}>{proc.name}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
+        {#if selectedCategory === "other"}
           <div>
             <label for="procedureOther" class="block text-sm font-medium text-ink-500 mb-1.5">Specify procedure</label>
             <input id="procedureOther" type="text" bind:value={procedureOther} maxlength="100"

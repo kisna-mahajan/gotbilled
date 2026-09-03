@@ -4,6 +4,7 @@ import {
   handleStats,
   handleCityPage,
   handleProcedurePage,
+  handleCategoryPage,
   handleAbsurdFeed,
   handleCalculator,
   handleFeed,
@@ -66,6 +67,10 @@ export default {
         const procedure = path.split("/api/procedure/")[1];
         if (!procedure) return addCors(jsonError("Procedure required", 400));
         response = await handleProcedurePage(procedure, env);
+      } else if (request.method === "GET" && path.startsWith("/api/category/")) {
+        const category = path.split("/api/category/")[1];
+        if (!category) return addCors(jsonError("Category required", 400));
+        response = await handleCategoryPage(category, env);
       } else if (request.method === "GET" && path === "/api/absurd") {
         response = await handleAbsurdFeed(url, env);
       } else if (request.method === "GET" && path === "/api/calculator") {

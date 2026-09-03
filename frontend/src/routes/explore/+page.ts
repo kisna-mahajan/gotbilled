@@ -6,9 +6,11 @@ export async function load({ url }: { url: URL }): Promise<{
   procedures: ProcedureOption[];
   stats: StatsData | null;
   initialCity: string;
+  initialCategory: string;
   initialProcedure: string;
 }> {
   const initialCity = url.searchParams.get("city") || "";
+  const initialCategory = url.searchParams.get("category") || "";
   const initialProcedure = url.searchParams.get("procedure") || "";
 
   try {
@@ -17,8 +19,8 @@ export async function load({ url }: { url: URL }): Promise<{
       getProcedures(),
       getStats(),
     ]);
-    return { cities, procedures, stats, initialCity, initialProcedure };
+    return { cities, procedures, stats, initialCity, initialCategory, initialProcedure };
   } catch {
-    return { cities: [], procedures: [], stats: null, initialCity, initialProcedure };
+    return { cities: [], procedures: [], stats: null, initialCity, initialCategory, initialProcedure };
   }
 }
