@@ -7,8 +7,6 @@
   let mounted = false;
   let animatedReports = 0;
   let animatedSurprise = 0;
-  let animatedOverbilled = 0;
-  let animatedToday = 0;
 
   function animate(target: number, setter: (n: number) => void, duration = 1200) {
     const start = performance.now();
@@ -21,25 +19,19 @@
     requestAnimationFrame(tick);
   }
 
-  function shortCurrency(n: number): string {
-    if (n >= 10_000_000) return `${(n / 10_000_000).toFixed(1)} Cr`;
-    if (n >= 100_000) return `${(n / 100_000).toFixed(1)}L`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-    return `${n}`;
-  }
-
   function cityName(slug: string): string {
     if (!slug) return "";
     return slug.split("_").map((w: string) => w[0].toUpperCase() + w.slice(1)).join(" ");
   }
+
+  $: topCategory = data.stats?.top_categories?.[0] ?? null;
+  $: topCity = data.stats?.city_leaderboard?.[0] ?? null;
 
   onMount(() => {
     mounted = true;
     if (data.stats) {
       animate(data.stats.total_reports, (n) => (animatedReports = n));
       animate(Math.round(data.stats.national_avg_surprise), (n) => (animatedSurprise = n));
-      animate(data.stats.total_overbilled, (n) => (animatedOverbilled = n));
-      animate(data.stats.today_count, (n) => (animatedToday = n), 600);
     }
   });
 </script>
@@ -68,12 +60,28 @@
         <div class="stat-label">Avg surprise</div>
       </div>
       <div>
-        <div class="stat-value text-ink-900">₹{shortCurrency(animatedOverbilled)}</div>
-        <div class="stat-label">Total overbilled</div>
+        {#if topCategory}
+          <a href="/explore?category={topCategory.category}" class="block group">
+            <div class="stat-value text-pop-red group-hover:underline">{Math.round(topCategory.avg_surprise)}%</div>
+            <div class="stat-label">{topCategory.category_name}</div>
+            <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">Most overbilled category</div>
+          </a>
+        {:else}
+          <div class="stat-value text-ink-200">—</div>
+          <div class="stat-label">Most overbilled category</div>
+        {/if}
       </div>
       <div>
-        <div class="stat-value text-pop-green">{animatedToday}</div>
-        <div class="stat-label">Today</div>
+        {#if topCity}
+          <a href="/explore?city={topCity.city}" class="block group">
+            <div class="stat-value text-pop-red group-hover:underline">{Math.round(topCity.avg_surprise)}%</div>
+            <div class="stat-label">{cityName(topCity.city)}</div>
+            <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">Most overbilled city</div>
+          </a>
+        {:else}
+          <div class="stat-value text-ink-200">—</div>
+          <div class="stat-label">Most overbilled city</div>
+        {/if}
       </div>
     </div>
   {:else if !data.stats}
