@@ -199,8 +199,20 @@ export function getCategoryData(category: string) {
   return fetchApi<CategoryData>(`/api/category/${category}`);
 }
 
-export function getAbsurdFeed(page = 1, limit = 20) {
-  return fetchApi<AbsurdFeedData>(`/api/absurd?page=${page}&limit=${limit}`);
+export interface FeedFilters {
+  city?: string;
+  procedure?: string;
+  category?: string;
+  tier?: string;
+}
+
+export function getAbsurdFeed(page = 1, limit = 20, filters?: FeedFilters) {
+  let url = `/api/absurd?page=${page}&limit=${limit}`;
+  if (filters?.city) url += `&city=${encodeURIComponent(filters.city)}`;
+  if (filters?.procedure) url += `&procedure=${encodeURIComponent(filters.procedure)}`;
+  if (filters?.category) url += `&category=${encodeURIComponent(filters.category)}`;
+  if (filters?.tier) url += `&tier=${encodeURIComponent(filters.tier)}`;
+  return fetchApi<AbsurdFeedData>(url);
 }
 
 export function getCalculator(procedure: string, city: string, tier?: string) {
@@ -209,6 +221,11 @@ export function getCalculator(procedure: string, city: string, tier?: string) {
   return fetchApi<CalculatorData>(url);
 }
 
-export function getFeed(page = 1, limit = 20) {
-  return fetchApi<FeedData>(`/api/feed?page=${page}&limit=${limit}`);
+export function getFeed(page = 1, limit = 20, filters?: FeedFilters) {
+  let url = `/api/feed?page=${page}&limit=${limit}`;
+  if (filters?.city) url += `&city=${encodeURIComponent(filters.city)}`;
+  if (filters?.procedure) url += `&procedure=${encodeURIComponent(filters.procedure)}`;
+  if (filters?.category) url += `&category=${encodeURIComponent(filters.category)}`;
+  if (filters?.tier) url += `&tier=${encodeURIComponent(filters.tier)}`;
+  return fetchApi<FeedData>(url);
 }

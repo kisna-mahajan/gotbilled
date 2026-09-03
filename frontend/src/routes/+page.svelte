@@ -4,9 +4,8 @@
 
   export let data: { stats: StatsData | null };
 
-  let mounted = false;
-  let animatedReports = 0;
-  let animatedSurprise = 0;
+  let animatedReports = data.stats?.total_reports ?? 0;
+  let animatedSurprise = Math.round(data.stats?.national_avg_surprise ?? 0);
 
   function animate(target: number, setter: (n: number) => void, duration = 1200) {
     const start = performance.now();
@@ -28,8 +27,9 @@
   $: topCity = data.stats?.city_leaderboard?.[0] ?? null;
 
   onMount(() => {
-    mounted = true;
     if (data.stats) {
+      animatedReports = 0;
+      animatedSurprise = 0;
       animate(data.stats.total_reports, (n) => (animatedReports = n));
       animate(Math.round(data.stats.national_avg_surprise), (n) => (animatedSurprise = n));
     }
@@ -49,7 +49,7 @@
     Anonymous hospital billing data, crowdsourced across India. Quoted vs. final — no names, just numbers.
   </p>
 
-  {#if data.stats && mounted}
+  {#if data.stats}
     <div class="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-10 mb-16">
       <div>
         <div class="stat-value text-ink-900">{animatedReports.toLocaleString("en-IN")}</div>

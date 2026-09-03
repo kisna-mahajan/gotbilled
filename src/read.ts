@@ -269,7 +269,32 @@ export async function handleAbsurdFeed(
   const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20") || 20));
   const offset = (page - 1) * limit;
 
-  const cacheKey = page === 1 && limit === 20 ? "absurd" : `absurd:${page}:${limit}`;
+  const city = url.searchParams.get("city") || "";
+  const procedure = url.searchParams.get("procedure") || "";
+  const tier = url.searchParams.get("tier") || "";
+  const category = url.searchParams.get("category") || "";
+
+  const conditions: string[] = ["r.quarantined = 0"];
+  const bindings: (string | number)[] = [];
+
+  if (city) { conditions.push("r.city = ?"); bindings.push(city); }
+  if (tier) { conditions.push("r.hospital_tier = ?"); bindings.push(tier); }
+  if (procedure) {
+    conditions.push("r.procedure_type = ?");
+    bindings.push(procedure);
+  } else if (category && category in PROCEDURE_CATEGORIES) {
+    const slugs = Object.keys(PROCEDURE_CATEGORIES[category].procedures);
+    if (slugs.length > 0) {
+      conditions.push(`r.procedure_type IN (${slugs.map(() => "?").join(",")})`);
+      bindings.push(...slugs);
+    }
+  }
+
+  const whereClause = conditions.join(" AND ");
+  const filterParts = [city, procedure || category, tier].filter(Boolean);
+  const baseKey = filterParts.length > 0 ? `absurd:f:${filterParts.join(":")}` : "absurd";
+  const cacheKey = page === 1 && limit === 20 ? baseKey : `${baseKey}:${page}:${limit}`;
+
   return cachedResponse(env, cacheKey, CACHE_TTL.absurd, async () => {
     const results = await env.DB.batch([
       env.DB.prepare(
@@ -277,16 +302,16 @@ export async function handleAbsurdFeed(
                 r.city, r.hospital_tier, r.procedure_type
          FROM surprise_items si
          JOIN reports r ON si.report_id = r.id
-         WHERE r.quarantined = 0
+         WHERE ${whereClause}
          ORDER BY si.upvotes DESC, si.created_at DESC
          LIMIT ? OFFSET ?`
-      ).bind(limit, offset),
+      ).bind(...bindings, limit, offset),
       env.DB.prepare(
         `SELECT COUNT(*) as total
          FROM surprise_items si
          JOIN reports r ON si.report_id = r.id
-         WHERE r.quarantined = 0`
-      ),
+         WHERE ${whereClause}`
+      ).bind(...bindings),
     ]);
 
     const total = (results[1].results[0] as Record<string, unknown>)?.total as number ?? 0;
@@ -370,20 +395,45 @@ export async function handleFeed(url: URL, env: Env): Promise<Response> {
   const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20") || 20));
   const offset = (page - 1) * limit;
 
-  const feedCacheKey = page === 1 && limit === 20 ? "feed" : `feed:${page}:${limit}`;
+  const city = url.searchParams.get("city") || "";
+  const procedure = url.searchParams.get("procedure") || "";
+  const tier = url.searchParams.get("tier") || "";
+  const category = url.searchParams.get("category") || "";
+
+  const conditions: string[] = ["quarantined = 0"];
+  const bindings: (string | number)[] = [];
+
+  if (city) { conditions.push("city = ?"); bindings.push(city); }
+  if (tier) { conditions.push("hospital_tier = ?"); bindings.push(tier); }
+  if (procedure) {
+    conditions.push("procedure_type = ?");
+    bindings.push(procedure);
+  } else if (category && category in PROCEDURE_CATEGORIES) {
+    const slugs = Object.keys(PROCEDURE_CATEGORIES[category].procedures);
+    if (slugs.length > 0) {
+      conditions.push(`procedure_type IN (${slugs.map(() => "?").join(",")})`);
+      bindings.push(...slugs);
+    }
+  }
+
+  const whereClause = conditions.join(" AND ");
+  const filterParts = [city, procedure || category, tier].filter(Boolean);
+  const baseKey = filterParts.length > 0 ? `feed:f:${filterParts.join(":")}` : "feed";
+  const feedCacheKey = page === 1 && limit === 20 ? baseKey : `${baseKey}:${page}:${limit}`;
+
   return cachedResponse(env, feedCacheKey, CACHE_TTL.feed, async () => {
     const results = await env.DB.batch([
       env.DB.prepare(
         `SELECT id, procedure_type, city, state, hospital_tier, insurance_used,
                 quoted_amount, final_amount, surprise_percentage, procedure_year, created_at
          FROM reports
-         WHERE quarantined = 0
+         WHERE ${whereClause}
          ORDER BY created_at DESC
          LIMIT ? OFFSET ?`
-      ).bind(limit, offset),
+      ).bind(...bindings, limit, offset),
       env.DB.prepare(
-        `SELECT COUNT(*) as total FROM reports WHERE quarantined = 0`
-      ),
+        `SELECT COUNT(*) as total FROM reports WHERE ${whereClause}`
+      ).bind(...bindings),
     ]);
 
     const total = (results[1].results[0] as Record<string, unknown>)?.total as number ?? 0;

@@ -64,6 +64,15 @@
   $: loading = loadingCity || loadingCategory || loadingProcedure || loadingAbsurd || loadingFeed || loadingCalc;
 
   let upvotedIds = new Set<string>();
+
+  function currentFilters() {
+    return {
+      city: filterCity || undefined,
+      procedure: filterProcedure || undefined,
+      category: (!filterProcedure && filterCategory) || undefined,
+      tier: filterTier || undefined,
+    };
+  }
   let cityRequestId = 0;
   let categoryRequestId = 0;
   let procedureRequestId = 0;
@@ -140,7 +149,7 @@
     if (reset) { absurdPage = 1; absurdItems = []; }
     loadingAbsurd = true;
     try {
-      const result = await getAbsurdFeed(absurdPage, 20);
+      const result = await getAbsurdFeed(absurdPage, 20, currentFilters());
       absurdItems = reset ? result.items : [...absurdItems, ...result.items];
       absurdHasMore = result.has_more;
     } catch { /* ignore */ }
@@ -151,7 +160,7 @@
     if (reset) { feedPage = 1; feedReports = []; }
     loadingFeed = true;
     try {
-      const result = await getFeed(feedPage, 20);
+      const result = await getFeed(feedPage, 20, currentFilters());
       feedReports = reset ? result.reports : [...feedReports, ...result.reports];
       feedHasMore = result.has_more;
     } catch { /* ignore */ }
@@ -181,15 +190,14 @@
 
   function switchTab(tab: Tab) {
     activeTab = tab;
-    if (tab === "absurd" && absurdItems.length === 0) loadAbsurd(true);
-    if (tab === "feed" && feedReports.length === 0) loadFeed(true);
-    if (tab === "calculator") loadCalculator();
   }
 
   $: if (filterCity || filterCity === "") loadCityData();
   $: { filterCategory; filterProcedure; loadCategoryData(); }
   $: if (filterProcedure || filterProcedure === "") loadProcedureData();
   $: if (activeTab === "calculator") { filterProcedure; filterCity; filterTier; loadCalculator(); }
+  $: if (activeTab === "absurd") { filterCity; filterCategory; filterProcedure; filterTier; loadAbsurd(true); }
+  $: if (activeTab === "feed") { filterCity; filterCategory; filterProcedure; filterTier; loadFeed(true); }
 
   onMount(() => {
     if (data.initialCity) filterCity = data.initialCity;
