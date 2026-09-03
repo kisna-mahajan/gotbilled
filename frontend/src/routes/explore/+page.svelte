@@ -237,7 +237,7 @@
     <select bind:value={filterCity} class="select-field max-w-[14rem] text-sm">
       <option value="">All cities</option>
       {#each data.cities as c}
-        <option value={c.slug}>{c.name}</option>
+        <option value={c.slug}>{c.name}, {c.state}</option>
       {/each}
     </select>
 
@@ -267,7 +267,7 @@
     </select>
 
     <select bind:value={filterTier} class="select-field max-w-[12rem] text-sm">
-      <option value="">All tiers</option>
+      <option value="">All hospital types</option>
       <option value="corporate_chain">Corporate Chain</option>
       <option value="private_standalone">Private</option>
       <option value="government">Government</option>
@@ -283,7 +283,7 @@
   </div>
 
   <!-- Tabs -->
-  <div class="flex gap-1 border-b border-ink-50 mb-8 overflow-x-auto">
+  <div class="flex gap-1 border-b border-ink-50 mb-8">
     {#each [
       { id: "overview", label: "Overview" },
       { id: "calculator", label: "Calculator" },
