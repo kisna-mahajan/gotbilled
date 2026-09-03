@@ -77,12 +77,47 @@ export async function handleStats(env: Env): Promise<Response> {
          FROM reports
          WHERE created_at > datetime('now', '-1 day') AND quarantined = 0`
       ),
+      env.DB.prepare(
+        `SELECT procedure_type,
+                SUM(report_count) as reports,
+                SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise
+         FROM aggregates
+         GROUP BY procedure_type
+         HAVING SUM(report_count) >= ?`
+      ).bind(MIN_AGGREGATION_THRESHOLD),
     ]);
 
     const overview = results[0].results[0] as Record<string, unknown> | undefined;
     const cityLeaderboard = results[1].results;
     const topAbsurd = results[2].results[0] || null;
     const todayCount = results[3].results[0] as Record<string, unknown> | undefined;
+    const procedureRows = results[4].results as Array<{ procedure_type: string; reports: number; avg_surprise: number }>;
+
+    const procToCat: Record<string, string> = {};
+    for (const [catSlug, cat] of Object.entries(PROCEDURE_CATEGORIES)) {
+      for (const procSlug of Object.keys(cat.procedures)) {
+        procToCat[procSlug] = catSlug;
+      }
+    }
+
+    const catAgg: Record<string, { reports: number; weightedSurprise: number }> = {};
+    for (const row of procedureRows) {
+      const cat = procToCat[row.procedure_type] || "other";
+      if (!catAgg[cat]) catAgg[cat] = { reports: 0, weightedSurprise: 0 };
+      catAgg[cat].reports += row.reports;
+      catAgg[cat].weightedSurprise += row.avg_surprise * row.reports;
+    }
+
+    const topCategories = Object.entries(catAgg)
+      .filter(([slug]) => slug !== "other" && slug in PROCEDURE_CATEGORIES)
+      .map(([slug, agg]) => ({
+        category: slug,
+        category_name: PROCEDURE_CATEGORIES[slug].name,
+        reports: agg.reports,
+        avg_surprise: Math.round((agg.weightedSurprise / agg.reports) * 100) / 100,
+      }))
+      .sort((a, b) => b.avg_surprise - a.avg_surprise)
+      .slice(0, 5);
 
     return {
       total_reports: overview?.total_reports ?? 0,
@@ -90,6 +125,7 @@ export async function handleStats(env: Env): Promise<Response> {
       total_overbilled: overview?.total_overbilled ?? 0,
       today_count: todayCount?.today_count ?? 0,
       city_leaderboard: cityLeaderboard,
+      top_categories: topCategories,
       top_absurd_charge: topAbsurd,
     };
   });

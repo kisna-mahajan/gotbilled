@@ -115,6 +115,30 @@
 </section>
 {/if}
 
+<!-- Most Overbilled Categories -->
+{#if data.stats?.top_categories && data.stats.top_categories.length > 0}
+<div class="border-t border-ink-50"></div>
+<section class="max-w-5xl mx-auto px-6 py-20">
+  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Most overbilled categories</h2>
+
+  <div class="space-y-1">
+    {#each data.stats.top_categories as cat, i}
+      <a href="/explore?category={cat.category}" class="flex items-center gap-6 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors group">
+        <span class="text-ink-200 font-mono text-sm w-6 text-right">{i + 1}</span>
+        <span class="flex-1 font-medium group-hover:text-pop-red transition-colors">{cat.category_name}</span>
+        <span class="text-ink-300 text-sm">{cat.reports} reports</span>
+        <span class="font-mono font-bold text-lg min-w-[4rem] text-right"
+          class:text-pop-red={cat.avg_surprise > 20}
+          class:text-pop-amber={cat.avg_surprise > 0 && cat.avg_surprise <= 20}
+          class:text-pop-green={cat.avg_surprise <= 0}>
+          {cat.avg_surprise > 0 ? "+" : ""}{Math.round(cat.avg_surprise)}%
+        </span>
+      </a>
+    {/each}
+  </div>
+</section>
+{/if}
+
 <!-- Absurd Charge -->
 {#if data.stats?.top_absurd_charge}
 <div class="border-t border-ink-50"></div>

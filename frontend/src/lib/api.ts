@@ -32,6 +32,12 @@ export interface StatsData {
     reports: number;
     avg_surprise: number;
   }>;
+  top_categories: Array<{
+    category: string;
+    category_name: string;
+    reports: number;
+    avg_surprise: number;
+  }>;
   top_absurd_charge: {
     description: string;
     amount: number;
