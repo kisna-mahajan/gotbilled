@@ -229,3 +229,36 @@ export function getFeed(page = 1, limit = 20, filters?: FeedFilters) {
   if (filters?.tier) url += `&tier=${encodeURIComponent(filters.tier)}`;
   return fetchApi<FeedData>(url);
 }
+
+export interface InsightsTopProcedure {
+  procedure_type: string;
+  display_name: string;
+  reports: number;
+  avg_surprise: number;
+  avg_quoted: number;
+  avg_final: number;
+}
+
+export interface InsightsInsuranceBreakdown {
+  insurance_used: string;
+  reports: number;
+  avg_surprise: number;
+  avg_quoted: number;
+  avg_final: number;
+}
+
+export interface InsightsTierBreakdown {
+  hospital_tier: string;
+  reports: number;
+  avg_surprise: number;
+}
+
+export interface InsightsData {
+  top_procedures: InsightsTopProcedure[];
+  insurance_breakdown: InsightsInsuranceBreakdown[];
+  tier_breakdown: InsightsTierBreakdown[];
+}
+
+export function getInsights() {
+  return fetchApi<InsightsData>("/api/insights");
+}

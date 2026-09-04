@@ -4,6 +4,7 @@ export interface Env {
   SUBMISSIONS_QUEUE: Queue<QueueMessage>;
   ENVIRONMENT: string;
   IP_HASH_SALT?: string;
+  TURNSTILE_SECRET?: string;
 }
 
 export interface QueueMessage {

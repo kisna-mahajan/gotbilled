@@ -22,6 +22,27 @@ export async function handleSubmit(
     return jsonResponse({ ok: false, error: "Invalid JSON body" }, 400);
   }
 
+  // Turnstile verification (skip if no secret configured)
+  if (env.TURNSTILE_SECRET) {
+    const token = body.turnstile_token;
+    if (!token) {
+      return jsonResponse({ ok: false, error: "Please complete the verification" }, 400);
+    }
+    const formData = new FormData();
+    formData.append("secret", env.TURNSTILE_SECRET);
+    formData.append("response", token);
+    formData.append("remoteip", request.headers.get("CF-Connecting-IP") || "");
+
+    const turnstileRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body: formData,
+    });
+    const turnstileResult = await turnstileRes.json() as { success: boolean };
+    if (!turnstileResult.success) {
+      return jsonResponse({ ok: false, error: "Verification failed. Please try again." }, 400);
+    }
+  }
+
   const validation = validateReport(body);
   if (!validation.valid) {
     return jsonResponse({ ok: false, error: validation.error }, 400);
@@ -74,7 +95,10 @@ export async function handleSubmit(
   try {
     await env.SUBMISSIONS_QUEUE.send(message);
   } catch {
-    return jsonResponse({ ok: false, error: "Failed to queue submission" }, 500);
+    return new Response(
+      JSON.stringify({ ok: false, error: "We're experiencing high traffic. Please try again in a moment." }),
+      { status: 503, headers: { "Content-Type": "application/json", "Retry-After": "30" } }
+    );
   }
 
   return jsonResponse({
@@ -144,6 +168,16 @@ export async function processQueueBatch(
 
   for (const msg of batch.messages) {
     const m = msg.body;
+
+    // Additional outlier detection in consumer
+    if (m.surprisePercentage > 300) {
+      if (!m.flagged) { m.flagged = true; }
+      m.flagReasons.push("extreme_surprise_pct");
+    }
+    if (m.finalAmount > 3_000_000) {
+      if (!m.flagged) { m.flagged = true; }
+      m.flagReasons.push("extreme_final_amount");
+    }
 
     const statements: D1PreparedStatement[] = [];
 
@@ -240,6 +274,21 @@ export async function processQueueBatch(
     if (m.surpriseCharges.length > 0) {
       keysToInvalidate.add("absurd");
     }
+  }
+
+  // Velocity-based batch flagging
+  for (const msg of batch.messages) {
+    const m = msg.body;
+    const velocityKey = `velocity:${m.city}:${m.procedureType}:${m.hospitalTier}`;
+    const current = parseInt(await env.CACHE.get(velocityKey) || "0");
+    if (current > 50) {
+      // Flag this report for review — store in moderation_log
+      await env.DB.prepare(
+        `INSERT INTO moderation_log (id, report_id, field_name, original_text, redaction_reason)
+         VALUES (?, ?, 'velocity_flag', ?, 'velocity_threshold_exceeded')`
+      ).bind(crypto.randomUUID(), m.reportId, `${current + 1} submissions for ${m.city}/${m.procedureType}/${m.hospitalTier} in 1 hour`).run();
+    }
+    await env.CACHE.put(velocityKey, String(current + 1), { expirationTtl: 3600 });
   }
 
   await invalidateCache(env, [...keysToInvalidate]);

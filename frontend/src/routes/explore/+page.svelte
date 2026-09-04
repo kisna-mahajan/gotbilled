@@ -13,6 +13,7 @@
     CityOption,
     ProcedureOption,
     StatsData,
+    InsightsData,
     CityData,
     CategoryData,
     ProcedureData,
@@ -25,6 +26,7 @@
     cities: CityOption[];
     procedures: ProcedureOption[];
     stats: StatsData | null;
+    insights: InsightsData | null;
     initialCity: string;
     initialCategory: string;
     initialProcedure: string;
@@ -34,7 +36,7 @@
   const tabDefs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "calculator", label: "Calculator" },
-    { id: "absurd", label: "Absurd Charges" },
+    { id: "absurd", label: "Wall of Shame" },
     { id: "feed", label: "Recent Bills" },
   ];
   let activeTab: Tab = "overview";

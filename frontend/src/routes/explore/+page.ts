@@ -1,10 +1,11 @@
-import { getCities, getProcedures, getStats } from "$lib/api";
-import type { CityOption, ProcedureOption, StatsData } from "$lib/api";
+import { getCities, getProcedures, getStats, getInsights } from "$lib/api";
+import type { CityOption, ProcedureOption, StatsData, InsightsData } from "$lib/api";
 
 export async function load({ url }: { url: URL }): Promise<{
   cities: CityOption[];
   procedures: ProcedureOption[];
   stats: StatsData | null;
+  insights: InsightsData | null;
   initialCity: string;
   initialCategory: string;
   initialProcedure: string;
@@ -14,13 +15,14 @@ export async function load({ url }: { url: URL }): Promise<{
   const initialProcedure = url.searchParams.get("procedure") || "";
 
   try {
-    const [cities, procedures, stats] = await Promise.all([
+    const [cities, procedures, stats, insights] = await Promise.all([
       getCities(),
       getProcedures(),
       getStats(),
+      getInsights().catch(() => null),
     ]);
-    return { cities, procedures, stats, initialCity, initialCategory, initialProcedure };
+    return { cities, procedures, stats, insights, initialCity, initialCategory, initialProcedure };
   } catch {
-    return { cities: [], procedures: [], stats: null, initialCity, initialCategory, initialProcedure };
+    return { cities: [], procedures: [], stats: null, insights: null, initialCity, initialCategory, initialProcedure };
   }
 }

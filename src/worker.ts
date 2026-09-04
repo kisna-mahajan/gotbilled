@@ -2,6 +2,7 @@ import { Env, QueueMessage } from "./types";
 import { handleSubmit, handleUpvote, processQueueBatch } from "./submit";
 import {
   handleStats,
+  handleInsights,
   handleCityPage,
   handleProcedurePage,
   handleCategoryPage,
@@ -59,6 +60,8 @@ export default {
         response = await handleUpvote(itemId, request, env);
       } else if (request.method === "GET" && path === "/api/stats") {
         response = await handleStats(env);
+      } else if (request.method === "GET" && path === "/api/insights") {
+        response = await handleInsights(env);
       } else if (request.method === "GET" && path.startsWith("/api/city/")) {
         const city = path.split("/api/city/")[1];
         if (!city) return addCors(jsonError("City required", 400));

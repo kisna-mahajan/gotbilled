@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { submitReport } from "$lib/api";
   import type { CityOption, ProcedureOption } from "$lib/api";
 
@@ -53,8 +54,18 @@
   let procedureYear = new Date().getFullYear();
   let surpriseCharges: Array<{ description: string; amount: number | null }> = [];
 
+  let turnstileToken = "";
   let formLoadedAt = Date.now();
   let honeypot = "";
+
+  onMount(() => {
+    (window as any).onTurnstileSuccess = (token: string) => {
+      turnstileToken = token;
+    };
+    return () => {
+      delete (window as any).onTurnstileSuccess;
+    };
+  });
 
   function addSurpriseCharge() {
     if (surpriseCharges.length < 10) {
@@ -97,6 +108,7 @@
       procedure_year: procedureYear,
       form_loaded_at: formLoadedAt,
       honeypot,
+      turnstile_token: turnstileToken,
     };
 
     if (procedureType === "other") payload.procedure_other = procedureOther.trim();
@@ -116,6 +128,10 @@
       const result = await submitReport(payload);
       resultData = result;
       success = true;
+      if ((window as any).turnstile) {
+        (window as any).turnstile.reset();
+      }
+      turnstileToken = "";
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       error = e instanceof Error ? e.message : "Something went wrong";
@@ -357,6 +373,10 @@
           </div>
         </div>
       </div>
+
+      <!-- Turnstile bot protection -->
+      <!-- Replace 0x4AAAAAAA_PLACEHOLDER_REPLACE_ME with your actual Turnstile site key from Cloudflare dashboard -->
+      <div class="cf-turnstile" data-sitekey="0x4AAAAAAA_PLACEHOLDER_REPLACE_ME" data-callback="onTurnstileSuccess" data-theme="light"></div>
 
       <!-- Submit -->
       <button type="submit" disabled={!isValid || submitting}

@@ -20,5 +20,6 @@ binding = "SUBMISSIONS_QUEUE"
 
 [[queues.consumers]]
 queue = "gotbilled-submissions"
-max_batch_size = 10
+max_batch_size = 50
 max_batch_timeout = 5
+max_concurrency = 20

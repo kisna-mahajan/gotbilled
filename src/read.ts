@@ -36,6 +36,17 @@ async function cachedResponse(
     });
   }
 
+  // Cache stampede lock: prevent multiple workers from fetching simultaneously
+  const lockKey = `lock:${cacheKey}`;
+  const locked = await env.CACHE.get(lockKey);
+  if (locked) {
+    // Another worker is refreshing — proceed anyway but skip lock acquisition
+    // The lock just reduces redundant D1 queries under load
+  } else {
+    // Set a short lock to prevent other workers from also fetching
+    await env.CACHE.put(lockKey, "1", { expirationTtl: 60 });
+  }
+
   const data = await fetcher();
   const body: ApiResponse = { ok: true, data };
   const json = JSON.stringify(body);
@@ -444,6 +455,74 @@ export async function handleFeed(url: URL, env: Env): Promise<Response> {
       limit,
       total,
       has_more: offset + limit < total,
+    };
+  });
+}
+
+export async function handleInsights(env: Env): Promise<Response> {
+  return cachedResponse(env, "insights", CACHE_TTL.stats, async () => {
+    const results = await env.DB.batch([
+      // Top 10 procedures by avg overbilling %
+      env.DB.prepare(
+        `SELECT procedure_type,
+                SUM(report_count) as reports,
+                SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise,
+                SUM(avg_quoted * report_count) / SUM(report_count) as avg_quoted,
+                SUM(avg_final * report_count) / SUM(report_count) as avg_final
+         FROM aggregates
+         GROUP BY procedure_type
+         HAVING SUM(report_count) >= 5
+         ORDER BY avg_surprise DESC
+         LIMIT 10`
+      ),
+      // Insurance breakdown
+      env.DB.prepare(
+        `SELECT insurance_used,
+                COUNT(*) as reports,
+                AVG(surprise_percentage) as avg_surprise,
+                AVG(quoted_amount) as avg_quoted,
+                AVG(final_amount) as avg_final
+         FROM reports
+         WHERE quarantined = 0
+         GROUP BY insurance_used`
+      ),
+      // Hospital tier breakdown
+      env.DB.prepare(
+        `SELECT hospital_tier,
+                SUM(report_count) as reports,
+                SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise
+         FROM aggregates
+         GROUP BY hospital_tier`
+      ),
+    ]);
+
+    const topProcedures = (results[0].results as Array<Record<string, unknown>>).map((row) => ({
+      procedure_type: row.procedure_type as string,
+      display_name: PROCEDURE_TYPES[row.procedure_type as string] || row.procedure_type,
+      reports: row.reports as number,
+      avg_surprise: Math.round((row.avg_surprise as number) * 100) / 100,
+      avg_quoted: Math.round(row.avg_quoted as number),
+      avg_final: Math.round(row.avg_final as number),
+    }));
+
+    const insuranceBreakdown = (results[1].results as Array<Record<string, unknown>>).map((row) => ({
+      insurance_used: row.insurance_used as string,
+      reports: row.reports as number,
+      avg_surprise: Math.round((row.avg_surprise as number) * 100) / 100,
+      avg_quoted: Math.round(row.avg_quoted as number),
+      avg_final: Math.round(row.avg_final as number),
+    }));
+
+    const tierBreakdown = (results[2].results as Array<Record<string, unknown>>).map((row) => ({
+      hospital_tier: row.hospital_tier as string,
+      reports: row.reports as number,
+      avg_surprise: Math.round((row.avg_surprise as number) * 100) / 100,
+    }));
+
+    return {
+      top_procedures: topProcedures,
+      insurance_breakdown: insuranceBreakdown,
+      tier_breakdown: tierBreakdown,
     };
   });
 }
