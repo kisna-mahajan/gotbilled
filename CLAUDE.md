@@ -155,6 +155,38 @@ gotbilled/
 1. D1 single-writer model — managed by Queue buffering, works up to ~50K entries/day
 2. Weekly aggregate recompute time — linear in row count, needs chunking past ~1M rows
 
+## Deployment Workflow
+
+Code is edited in a remote Claude Code session and pushed to GitHub. The project owner runs deploy commands on their **Windows machine (PowerShell)** from the local repo clone.
+
+**Critical: always `git pull` before deploying.** Remote sessions push to GitHub but the local machine has its own copy. Running `npx wrangler deploy` without pulling first deploys stale code.
+
+```powershell
+# Standard deploy sequence (run from project root in PowerShell)
+git pull origin claude/gotbilled-db-schema-5lw5tk
+npx wrangler deploy                    # deploys Worker with latest API code
+cd frontend && npm run build            # rebuilds frontend
+npm run preview                         # local preview at http://localhost:4173
+```
+
+### KV Cache Gotchas
+
+All read endpoints cache responses in Cloudflare KV (TTLs: 1h stats/calculator/aggregates, 15min absurd, 5min feeds). When backend query logic changes:
+
+1. **Old cached responses persist** until TTL expires — deploying a fix doesn't clear cache
+2. **Bust stale cache** by changing the cache key prefix in `src/read.ts` (e.g. `calculator:` → `calc2:`)
+3. Alternatively, delete specific keys: `npx wrangler kv key delete "KEY" --namespace-id=ce40d4a2eb984d9d8efe68ac6b8c414f`
+
+### D1 Migrations
+
+- D1 migration tracker doesn't know about the nuclear reset (migration 0005). Running `wrangler d1 migrations apply` tries to re-run 0001 and fails with "table already exists".
+- **Workaround:** Run new schema changes directly with `--command` or `--file` instead of the migrations system.
+- D1 ignores `PRAGMA foreign_keys=OFF` — it enforces FK constraints server-side. To alter a table with FK dependencies, either drop child tables first or recreate the database.
+
+### Aggregation Threshold
+
+`MIN_AGGREGATION_THRESHOLD` in `src/data.ts` is set to 5 but is **not currently used** in read queries. With 300 seed reports across ~279 aggregate combos, per-row counts max out at 3, so any threshold > 1 makes most queries return empty. The threshold was removed from calculator/city/procedure/category/stats queries. Re-enable it when the platform has enough real data (1000+ reports).
+
 ## User Context
 
 - The project owner is a **vibe coder** — no web development or hosting background
