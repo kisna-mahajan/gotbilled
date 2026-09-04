@@ -44,6 +44,7 @@
   let absurdPage = 1;
   let absurdHasMore = false;
   let calcResult: CalculatorData | null = null;
+  let topAbsurdItems: AbsurdItem[] = [];
 
   let loadingOverview = false;
   let loadingAbsurd = false;
@@ -156,9 +157,9 @@
   async function handleUpvote(itemId: string) {
     try {
       await upvoteItem(itemId);
-      absurdItems = absurdItems.map(item =>
-        item.id === itemId ? { ...item, upvotes: item.upvotes + 1 } : item
-      );
+      const bump = (item: AbsurdItem) => item.id === itemId ? { ...item, upvotes: item.upvotes + 1 } : item;
+      absurdItems = absurdItems.map(bump);
+      topAbsurdItems = topAbsurdItems.map(bump);
     } catch { /* ignore */ }
   }
 
@@ -191,10 +192,14 @@
   $: if (activeTab === "absurd") { filterCity; filterCategory; filterProcedure; filterTier; loadAbsurd(true); }
   $: if (activeTab === "calculator") { filterProcedure; filterCity; loadCalculator(); }
 
-  onMount(() => {
+  onMount(async () => {
     if (data.initialCity) filterCity = data.initialCity;
     if (data.initialCategory) filterCategory = data.initialCategory;
     if (data.initialProcedure) filterProcedure = data.initialProcedure;
+    try {
+      const result = await getAbsurdFeed(1, 10);
+      topAbsurdItems = result.items;
+    } catch { /* ignore */ }
   });
 
   interface CategoryGroup {
@@ -362,23 +367,6 @@
     {#if !hasAnyFilter}
       <!-- No filter: visual layout from stats + insights -->
 
-      {#if data.stats?.top_absurd_charge}
-        <div class="bg-ink-50 rounded-2xl p-8 mb-10">
-          <div class="text-[10px] text-ink-200 uppercase tracking-[0.15em] mb-4">Most absurd charge reported</div>
-          <p class="text-xl md:text-2xl font-semibold leading-snug mb-3">
-            &ldquo;{data.stats.top_absurd_charge.description}&rdquo;
-          </p>
-          <div class="text-4xl md:text-5xl font-black font-mono tabular-nums text-pop-red mb-3">
-            ₹{data.stats.top_absurd_charge.amount.toLocaleString("en-IN")}
-          </div>
-          <div class="flex gap-3 text-sm text-ink-300">
-            <span>{cityName(data.stats.top_absurd_charge.city)}</span>
-            <span>&middot;</span>
-            <span>{data.stats.top_absurd_charge.upvotes} found this absurd</span>
-          </div>
-        </div>
-      {/if}
-
       {#if data.stats?.city_leaderboard?.length}
         <div class="mb-12">
           <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Most overbilled cities</h2>
@@ -454,6 +442,41 @@
                     {tier.avg_surprise > 20 ? 'bg-pop-red' : tier.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
                     style="width: {Math.min(100, Math.max(5, Math.abs(tier.avg_surprise)))}%">
                   </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if topAbsurdItems.length > 0}
+        <div class="mb-12">
+          <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Top absurd charges</h2>
+          <div class="space-y-1">
+            {#each topAbsurdItems as item}
+              <div class="flex items-start gap-4 py-3 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors">
+                <div class="flex-shrink-0 text-center">
+                  <button on:click={() => item.id && handleUpvote(item.id)}
+                    class="flex flex-col items-center gap-0.5 text-ink-200 hover:text-pop-red transition-colors px-1"
+                    title="This is absurd!">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                    </svg>
+                    <span class="text-xs font-mono font-bold">{item.upvotes}</span>
+                  </button>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm mb-1">&ldquo;{item.description}&rdquo;</p>
+                  <div class="flex gap-2 text-xs text-ink-200">
+                    <span>{cityName(item.city)}</span>
+                    <span>&middot;</span>
+                    <span>{tierLabels[item.hospital_tier] || item.hospital_tier}</span>
+                    <span>&middot;</span>
+                    <span>{procedureName(item.procedure_type)}</span>
+                  </div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <div class="font-mono font-bold text-pop-red">{fmtCurrency(item.amount)}</div>
                 </div>
               </div>
             {/each}
