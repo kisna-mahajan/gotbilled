@@ -285,7 +285,7 @@ export async function processQueueBatch(
       // Flag this report for review — store in moderation_log
       await env.DB.prepare(
         `INSERT INTO moderation_log (id, report_id, field_name, original_text, redaction_reason)
-         VALUES (?, ?, 'velocity_flag', ?, 'velocity_threshold_exceeded')`
+         VALUES (?, ?, 'velocity_flag', ?, 'velocity')`
       ).bind(crypto.randomUUID(), m.reportId, `${current + 1} submissions for ${m.city}/${m.procedureType}/${m.hospitalTier} in 1 hour`).run();
     }
     await env.CACHE.put(velocityKey, String(current + 1), { expirationTtl: 3600 });

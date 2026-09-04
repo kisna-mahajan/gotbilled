@@ -158,9 +158,9 @@ export async function handleCityPage(
                 avg_quoted, avg_final, avg_surprise_pct,
                 max_surprise_pct, min_surprise_pct
          FROM aggregates
-         WHERE city = ? AND report_count >= ?
+         WHERE city = ?
          ORDER BY report_count DESC`
-      ).bind(city, MIN_AGGREGATION_THRESHOLD),
+      ).bind(city),
       env.DB.prepare(
         `SELECT si.description, si.amount, si.upvotes, r.procedure_type, r.hospital_tier
          FROM surprise_items si
@@ -204,9 +204,9 @@ export async function handleProcedurePage(
                 avg_quoted, avg_final, avg_surprise_pct,
                 max_surprise_pct, min_surprise_pct
          FROM aggregates
-         WHERE procedure_type = ? AND report_count >= ?
+         WHERE procedure_type = ?
          ORDER BY avg_surprise_pct DESC`
-      ).bind(procedure, MIN_AGGREGATION_THRESHOLD),
+      ).bind(procedure),
       env.DB.prepare(
         `SELECT COUNT(*) as total,
                 AVG(surprise_percentage) as avg_surprise,
@@ -250,9 +250,9 @@ export async function handleCategoryPage(
          FROM aggregates
          WHERE procedure_type IN (${placeholders})
          GROUP BY city, hospital_tier
-         HAVING SUM(report_count) >= ?
+         HAVING SUM(report_count) >= 1
          ORDER BY SUM(report_count) DESC`
-      ).bind(...procedureSlugs, MIN_AGGREGATION_THRESHOLD),
+      ).bind(...procedureSlugs),
       env.DB.prepare(
         `SELECT COUNT(*) as total,
                 AVG(surprise_percentage) as avg_surprise,
