@@ -592,7 +592,7 @@ export async function handleExploreOverview(
   }
 
   const parts = [city, procedure || category, tier].filter(Boolean);
-  const cacheKey = parts.length > 0 ? `ov3:${parts.join(":")}` : "ov3:all";
+  const cacheKey = parts.length > 0 ? `ov4:${parts.join(":")}` : "ov4:all";
 
   return cachedResponse(env, cacheKey, CACHE_TTL.overview, async () => {
     const queries = [
@@ -639,7 +639,7 @@ export async function handleExploreOverview(
            GROUP BY ${groupBy}
            HAVING COUNT(*) >= 1
            ORDER BY COUNT(*) DESC
-           LIMIT 30`
+           LIMIT 10`
         ).bind(...bindings)
       );
     }
