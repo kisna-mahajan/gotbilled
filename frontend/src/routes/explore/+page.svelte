@@ -41,8 +41,6 @@
 
   let overviewData: ExploreOverviewData | null = null;
   let absurdItems: AbsurdItem[] = [];
-  let absurdPage = 1;
-  let absurdHasMore = false;
   let calcResult: CalculatorData | null = null;
   let topAbsurdItems: AbsurdItem[] = [];
 
@@ -143,20 +141,18 @@
     overviewTimer = setTimeout(loadOverview, DEBOUNCE_MS);
   }
 
-  async function loadAbsurd(reset = false) {
-    if (reset) { absurdPage = 1; }
+  async function loadAbsurd() {
     loadingAbsurd = true;
     try {
-      const result = await getAbsurdFeed(absurdPage, 20, currentFilters());
-      absurdItems = reset ? result.items : [...absurdItems, ...result.items];
-      absurdHasMore = result.has_more;
+      const result = await getAbsurdFeed(1, 50, currentFilters());
+      absurdItems = result.items;
     } catch { /* ignore */ }
     loadingAbsurd = false;
   }
 
   function debouncedAbsurd() {
     clearTimeout(absurdTimer);
-    absurdTimer = setTimeout(() => loadAbsurd(true), DEBOUNCE_MS);
+    absurdTimer = setTimeout(loadAbsurd, DEBOUNCE_MS);
   }
 
   async function loadCalculator() {
@@ -648,14 +644,6 @@
         {/each}
       </div>
 
-      {#if absurdHasMore}
-        <div class="text-center mt-6">
-          <button on:click={() => { absurdPage++; loadAbsurd(); }}
-            class="text-sm text-ink-300 hover:text-ink-900 transition-colors px-4 py-2">
-            Load more
-          </button>
-        </div>
-      {/if}
     {:else if !loadingAbsurd}
       <div class="text-center py-16">
         <p class="text-ink-300 text-sm">No absurd charges reported yet.</p>
