@@ -235,6 +235,46 @@
   <h1 class="text-3xl md:text-4xl font-black tracking-tight mb-2">Explore</h1>
   <p class="text-ink-300 mb-10">Dig into what Indians actually pay for medical procedures.</p>
 
+  <!-- National KPIs — always visible, not affected by filters -->
+  {#if data.stats}
+    <div class="mb-10">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div>
+          <div class="text-3xl md:text-4xl font-black font-mono tabular-nums">{data.stats.total_reports.toLocaleString("en-IN")}</div>
+          <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Bills shared</div>
+        </div>
+        <div>
+          <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red">{Math.round(data.stats.national_avg_surprise)}%</div>
+          <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg % overbilling</div>
+        </div>
+        <div>
+          {#if data.stats.top_categories?.[0]}
+            <div>
+              <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red">{Math.round(data.stats.top_categories[0].avg_surprise)}%</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">{data.stats.top_categories[0].category_name}</div>
+              <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled category</div>
+            </div>
+          {:else}
+            <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-ink-200">—</div>
+            <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Most overbilled category</div>
+          {/if}
+        </div>
+        <div>
+          {#if data.stats.city_leaderboard?.[0]}
+            <div>
+              <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red">{Math.round(data.stats.city_leaderboard[0].avg_surprise)}%</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">{cityName(data.stats.city_leaderboard[0].city)}</div>
+              <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled city</div>
+            </div>
+          {:else}
+            <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-ink-200">—</div>
+            <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Most overbilled city</div>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <!-- Filters -->
   <div class="flex flex-wrap gap-3 mb-10">
     <select bind:value={filterCity} class="select-field max-w-[14rem] text-sm">
@@ -302,53 +342,6 @@
 
   <!-- OVERVIEW TAB -->
   {#if activeTab === "overview"}
-    <!-- National snapshot — always visible -->
-    {#if data.stats}
-      <div class="mb-10">
-        {#if filterCity || filterCategory || filterProcedure}
-          <div class="text-[10px] text-ink-200 uppercase tracking-[0.15em] mb-3">National</div>
-        {/if}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div>
-            <div class="text-3xl md:text-4xl font-black font-mono tabular-nums">{data.stats.total_reports.toLocaleString("en-IN")}</div>
-            <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Bills shared</div>
-          </div>
-          <div>
-            <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red">{Math.round(data.stats.national_avg_surprise)}%</div>
-            <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg % overbilling</div>
-          </div>
-          <div>
-            {#if data.stats.top_categories?.[0]}
-              <a href="/explore?category={data.stats.top_categories[0].category}" class="block group">
-                <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red group-hover:underline">{Math.round(data.stats.top_categories[0].avg_surprise)}%</div>
-                <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">{data.stats.top_categories[0].category_name}</div>
-                <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled category</div>
-              </a>
-            {:else}
-              <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-ink-200">—</div>
-              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Most overbilled category</div>
-            {/if}
-          </div>
-          <div>
-            {#if data.stats.city_leaderboard?.[0]}
-              <a href="/explore?city={data.stats.city_leaderboard[0].city}" class="block group">
-                <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red group-hover:underline">{Math.round(data.stats.city_leaderboard[0].avg_surprise)}%</div>
-                <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">{cityName(data.stats.city_leaderboard[0].city)}</div>
-                <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled city</div>
-              </a>
-            {:else}
-              <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-ink-200">—</div>
-              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Most overbilled city</div>
-            {/if}
-          </div>
-        </div>
-      </div>
-
-      {#if filterCity || filterCategory || filterProcedure}
-        <div class="border-t border-ink-50 mb-10"></div>
-      {/if}
-    {/if}
-
     <!-- City deep-dive -->
     {#if filterCity && cityData}
       <div class="mb-12">
