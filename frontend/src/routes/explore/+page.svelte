@@ -7,7 +7,6 @@
     getAbsurdFeed,
     getCalculator,
     getFeed,
-    upvoteItem,
   } from "$lib/api";
   import type {
     CityOption,
@@ -64,8 +63,6 @@
   let loadingFeed = false;
   let loadingCalc = false;
   $: loading = loadingCity || loadingCategory || loadingProcedure || loadingAbsurd || loadingFeed || loadingCalc;
-
-  let upvotedIds = new Set<string>();
 
   function currentFilters() {
     return {
@@ -178,18 +175,6 @@
     loadingCalc = false;
   }
 
-  async function handleUpvote(id: string) {
-    if (upvotedIds.has(id)) return;
-    try {
-      await upvoteItem(id);
-      upvotedIds.add(id);
-      upvotedIds = upvotedIds;
-      absurdItems = absurdItems.map((item) =>
-        item.id === id ? { ...item, upvotes: item.upvotes + 1 } : item
-      );
-    } catch { /* ignore */ }
-  }
-
   function switchTab(tab: Tab) {
     activeTab = tab;
   }
@@ -205,6 +190,8 @@
     if (data.initialCity) filterCity = data.initialCity;
     if (data.initialCategory) filterCategory = data.initialCategory;
     if (data.initialProcedure) filterProcedure = data.initialProcedure;
+    loadAbsurd(true);
+    loadFeed(true);
   });
 
   interface CategoryGroup {
@@ -782,15 +769,6 @@
       <div class="space-y-1">
         {#each absurdItems as item}
           <div class="flex items-start gap-4 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors">
-            <button on:click={() => item.id && handleUpvote(item.id)}
-              class="flex-shrink-0 flex flex-col items-center gap-0.5 min-w-[3rem] pt-0.5 transition-colors
-                {item.id && upvotedIds.has(item.id) ? 'text-pop-red' : 'text-ink-200 hover:text-ink-500'}"
-              disabled={!item.id || upvotedIds.has(item.id || "")}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M12 19V5M5 12l7-7 7 7"/>
-              </svg>
-              <span class="text-xs font-mono font-bold tabular-nums">{item.upvotes}</span>
-            </button>
             <div class="flex-1 min-w-0">
               <p class="text-sm mb-1">&ldquo;{item.description}&rdquo;</p>
               <div class="flex gap-2 text-xs text-ink-200">

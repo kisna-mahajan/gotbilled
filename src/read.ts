@@ -72,10 +72,10 @@ export async function handleStats(env: Env): Promise<Response> {
                 SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise
          FROM aggregates
          GROUP BY city
-         HAVING SUM(report_count) >= ?
+         HAVING SUM(report_count) >= 1
          ORDER BY avg_surprise DESC
          LIMIT 10`
-      ).bind(MIN_AGGREGATION_THRESHOLD),
+      ),
       env.DB.prepare(
         `SELECT si.description, si.amount, si.upvotes, r.city, r.hospital_tier
          FROM surprise_items si
@@ -95,8 +95,8 @@ export async function handleStats(env: Env): Promise<Response> {
                 SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise
          FROM aggregates
          GROUP BY procedure_type
-         HAVING SUM(report_count) >= ?`
-      ).bind(MIN_AGGREGATION_THRESHOLD),
+         HAVING SUM(report_count) >= 1`
+      ),
     ]);
 
     const overview = results[0].results[0] as Record<string, unknown> | undefined;
@@ -358,8 +358,8 @@ export async function handleCalculator(
     let query = `SELECT report_count, avg_quoted, avg_final, avg_surprise_pct,
                         max_surprise_pct, min_surprise_pct
                  FROM aggregates
-                 WHERE procedure_type = ? AND city = ? AND report_count >= ?`;
-    const bindings: (string | number)[] = [procedure, city, MIN_AGGREGATION_THRESHOLD];
+                 WHERE procedure_type = ? AND city = ?`;
+    const bindings: (string | number)[] = [procedure, city];
 
     if (tier) {
       query += " AND hospital_tier = ?";
@@ -471,7 +471,7 @@ export async function handleInsights(env: Env): Promise<Response> {
                 SUM(avg_final * report_count) / SUM(report_count) as avg_final
          FROM aggregates
          GROUP BY procedure_type
-         HAVING SUM(report_count) >= 5
+         HAVING SUM(report_count) >= 1
          ORDER BY avg_surprise DESC
          LIMIT 10`
       ),
