@@ -49,7 +49,6 @@
   let loadingOverview = false;
   let loadingAbsurd = false;
   let loadingCalc = false;
-  $: loading = loadingOverview || loadingAbsurd || loadingCalc;
 
   $: hasAnyFilter = !!(filterCity || filterCategory || filterProcedure || filterTier);
 
@@ -119,9 +118,14 @@
     };
   }
 
+  let overviewTimer: ReturnType<typeof setTimeout>;
+  let absurdTimer: ReturnType<typeof setTimeout>;
+  let calcTimer: ReturnType<typeof setTimeout>;
+  const DEBOUNCE_MS = 250;
+
   let overviewRequestId = 0;
   async function loadOverview() {
-    if (!hasAnyFilter) { overviewData = null; return; }
+    if (!hasAnyFilter) { overviewData = null; loadingOverview = false; return; }
     const reqId = ++overviewRequestId;
     loadingOverview = true;
     sortCol = null;
@@ -134,8 +138,13 @@
     if (reqId === overviewRequestId) loadingOverview = false;
   }
 
+  function debouncedOverview() {
+    clearTimeout(overviewTimer);
+    overviewTimer = setTimeout(loadOverview, DEBOUNCE_MS);
+  }
+
   async function loadAbsurd(reset = false) {
-    if (reset) { absurdPage = 1; absurdItems = []; }
+    if (reset) { absurdPage = 1; }
     loadingAbsurd = true;
     try {
       const result = await getAbsurdFeed(absurdPage, 20, currentFilters());
@@ -145,13 +154,23 @@
     loadingAbsurd = false;
   }
 
+  function debouncedAbsurd() {
+    clearTimeout(absurdTimer);
+    absurdTimer = setTimeout(() => loadAbsurd(true), DEBOUNCE_MS);
+  }
+
   async function loadCalculator() {
-    if (!filterProcedure || !filterCity) { calcResult = null; return; }
+    if (!filterProcedure || !filterCity) { calcResult = null; loadingCalc = false; return; }
     loadingCalc = true;
     try {
       calcResult = await getCalculator(filterProcedure, filterCity);
     } catch { calcResult = null; }
     loadingCalc = false;
+  }
+
+  function debouncedCalc() {
+    clearTimeout(calcTimer);
+    calcTimer = setTimeout(loadCalculator, DEBOUNCE_MS);
   }
 
   async function handleUpvote(itemId: string) {
@@ -188,9 +207,9 @@
     activeTab = tab;
   }
 
-  $: if (activeTab === "overview") { filterCity; filterCategory; filterProcedure; filterTier; loadOverview(); }
-  $: if (activeTab === "absurd") { filterCity; filterCategory; filterProcedure; filterTier; loadAbsurd(true); }
-  $: if (activeTab === "calculator") { filterProcedure; filterCity; loadCalculator(); }
+  $: if (activeTab === "overview") { filterCity; filterCategory; filterProcedure; filterTier; debouncedOverview(); }
+  $: if (activeTab === "absurd") { filterCity; filterCategory; filterProcedure; filterTier; debouncedAbsurd(); }
+  $: if (activeTab === "calculator") { filterProcedure; filterCity; debouncedCalc(); }
 
   onMount(async () => {
     if (data.initialCity) filterCity = data.initialCity;
@@ -358,10 +377,6 @@
     {/each}
   </div>
 
-  {#if loading}
-    <div class="text-center py-12 text-ink-200 text-sm">Loading...</div>
-  {/if}
-
   <!-- OVERVIEW TAB -->
   {#if activeTab === "overview"}
     {#if !hasAnyFilter}
@@ -484,8 +499,12 @@
         </div>
       {/if}
 
+    {:else if loadingOverview && !overviewData}
+      <div class="text-center py-16 text-ink-200 text-sm">Loading...</div>
+
     {:else if overviewData}
       <!-- Filtered: dynamic overview -->
+      <div class="transition-opacity duration-150" class:opacity-50={loadingOverview}>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
         <div>
           <div class="text-2xl font-black font-mono tabular-nums">{overviewData.kpis.bills_shared.toLocaleString("en-IN")}</div>
@@ -549,7 +568,7 @@
             </table>
           </div>
         </div>
-      {:else if !loading && overviewData.kpis.bills_shared === 0}
+      {:else if !loadingOverview && overviewData.kpis.bills_shared === 0}
         <p class="text-ink-200 text-sm py-4">Not enough data for this combination yet.</p>
       {/if}
 
@@ -582,6 +601,7 @@
           </div>
         </div>
       {/if}
+      </div>
     {/if}
 
     {#if !data.stats && !hasAnyFilter}
@@ -594,8 +614,11 @@
 
   <!-- WALL OF SHAME TAB -->
   {:else if activeTab === "absurd"}
+    {#if loadingAbsurd && absurdItems.length === 0}
+      <div class="text-center py-16 text-ink-200 text-sm">Loading...</div>
+    {/if}
     {#if absurdItems.length > 0}
-      <div class="space-y-1">
+      <div class="space-y-1 transition-opacity duration-150" class:opacity-50={loadingAbsurd}>
         {#each absurdItems as item}
           <div class="flex items-start gap-4 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors">
             <div class="flex-shrink-0 text-center">
@@ -633,7 +656,7 @@
           </button>
         </div>
       {/if}
-    {:else if !loading}
+    {:else if !loadingAbsurd}
       <div class="text-center py-16">
         <p class="text-ink-300 text-sm">No absurd charges reported yet.</p>
         <a href="/submit" class="inline-block mt-3 text-sm text-ink-500 hover:text-ink-900 transition-colors">Be the first &rarr;</a>
@@ -642,7 +665,7 @@
 
   <!-- CALCULATOR TAB -->
   {:else if activeTab === "calculator"}
-    <div>
+    <div class="transition-opacity duration-150" class:opacity-50={loadingCalc}>
       {#if !filterProcedure || !filterCity}
         <div class="border border-dashed border-ink-100 rounded-2xl p-8 text-center max-w-lg">
           <p class="text-ink-300 text-sm">Pick a <strong>procedure</strong> and <strong>city</strong> from the filters above to see what others paid.</p>
@@ -760,7 +783,7 @@
             </a>
           </div>
         {/if}
-      {:else if !loading}
+      {:else if !loadingCalc}
         <div class="border border-dashed border-ink-100 rounded-2xl p-8 text-center max-w-lg">
           <p class="text-ink-300 text-sm">No data available for this combination.</p>
         </div>
