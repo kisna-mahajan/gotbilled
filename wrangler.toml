@@ -8,7 +8,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "gotbilled-db"
-database_id = "4189a828-2dbe-47ee-bf2a-d82210ec6f26"
+database_id = "935594bc-e5b9-4102-8ee6-26f6fe955930"
 
 [[kv_namespaces]]
 binding = "CACHE"
