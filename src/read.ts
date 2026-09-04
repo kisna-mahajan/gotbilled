@@ -20,7 +20,15 @@ const CACHE_TTL = {
   absurd: 900,
   feed: 300,
   calculator: 3600,
+  overview: 3600,
 };
+
+const PROC_TO_CAT: Record<string, string> = {};
+for (const [catSlug, cat] of Object.entries(PROCEDURE_CATEGORIES)) {
+  for (const procSlug of Object.keys(cat.procedures)) {
+    PROC_TO_CAT[procSlug] = catSlug;
+  }
+}
 
 async function cachedResponse(
   env: Env,
@@ -105,16 +113,9 @@ export async function handleStats(env: Env): Promise<Response> {
     const todayCount = results[3].results[0] as Record<string, unknown> | undefined;
     const procedureRows = results[4].results as Array<{ procedure_type: string; reports: number; avg_surprise: number }>;
 
-    const procToCat: Record<string, string> = {};
-    for (const [catSlug, cat] of Object.entries(PROCEDURE_CATEGORIES)) {
-      for (const procSlug of Object.keys(cat.procedures)) {
-        procToCat[procSlug] = catSlug;
-      }
-    }
-
     const catAgg: Record<string, { reports: number; weightedSurprise: number }> = {};
     for (const row of procedureRows) {
-      const cat = procToCat[row.procedure_type] || "other";
+      const cat = PROC_TO_CAT[row.procedure_type] || "other";
       if (!catAgg[cat]) catAgg[cat] = { reports: 0, weightedSurprise: 0 };
       catAgg[cat].reports += row.reports;
       catAgg[cat].weightedSurprise += row.avg_surprise * row.reports;
@@ -314,7 +315,7 @@ export async function handleAbsurdFeed(
          FROM surprise_items si
          JOIN reports r ON si.report_id = r.id
          WHERE ${whereClause}
-         ORDER BY si.upvotes DESC, si.created_at DESC
+         ORDER BY si.upvotes DESC, si.amount DESC
          LIMIT ? OFFSET ?`
       ).bind(...bindings, limit, offset),
       env.DB.prepare(
@@ -343,7 +344,6 @@ export async function handleCalculator(
 ): Promise<Response> {
   const procedure = url.searchParams.get("procedure");
   const city = url.searchParams.get("city");
-  const tier = url.searchParams.get("tier");
 
   if (!procedure || !city) {
     return jsonResponse(
@@ -352,51 +352,67 @@ export async function handleCalculator(
     );
   }
 
-  const cacheKey = `calc2:${procedure}:${city}${tier ? `:${tier}` : ""}`;
+  const cacheKey = `calc3:${procedure}:${city}`;
 
   return cachedResponse(env, cacheKey, CACHE_TTL.calculator, async () => {
-    let query = `SELECT report_count, avg_quoted, avg_final, avg_surprise_pct,
-                        max_surprise_pct, min_surprise_pct
-                 FROM aggregates
-                 WHERE procedure_type = ? AND city = ?`;
-    const bindings: (string | number)[] = [procedure, city];
+    const results = await env.DB.batch([
+      env.DB.prepare(
+        `SELECT COUNT(*) as bills_shared,
+                AVG(quoted_amount) as avg_quoted,
+                AVG(final_amount) as avg_final,
+                AVG(surprise_percentage) as avg_surprise,
+                MAX(surprise_percentage) as max_surprise,
+                MIN(surprise_percentage) as min_surprise
+         FROM reports
+         WHERE procedure_type = ? AND city = ? AND quarantined = 0`
+      ).bind(procedure, city),
+      env.DB.prepare(
+        `SELECT hospital_tier, insurance_used,
+                COUNT(*) as bills_shared,
+                AVG(quoted_amount) as avg_quoted,
+                AVG(final_amount) as avg_final,
+                AVG(surprise_percentage) as avg_surprise
+         FROM reports
+         WHERE procedure_type = ? AND city = ? AND quarantined = 0
+         GROUP BY hospital_tier, insurance_used
+         ORDER BY hospital_tier, insurance_used`
+      ).bind(procedure, city),
+      env.DB.prepare(
+        `SELECT si.id, si.description, si.amount, si.upvotes, r.hospital_tier
+         FROM surprise_items si
+         JOIN reports r ON si.report_id = r.id
+         WHERE r.procedure_type = ? AND r.city = ? AND r.quarantined = 0
+         ORDER BY si.amount DESC
+         LIMIT 5`
+      ).bind(procedure, city),
+      env.DB.prepare(
+        `SELECT insurance_used,
+                COUNT(*) as bills_shared,
+                AVG(surprise_percentage) as avg_surprise,
+                AVG(quoted_amount) as avg_quoted,
+                AVG(final_amount) as avg_final
+         FROM reports
+         WHERE procedure_type = ? AND city = ? AND quarantined = 0
+         GROUP BY insurance_used`
+      ).bind(procedure, city),
+    ]);
 
-    if (tier) {
-      query += " AND hospital_tier = ?";
-      bindings.push(tier);
-    }
-
-    const result = await env.DB.prepare(query).bind(...bindings).all();
-
-    if (result.results.length === 0) {
+    const overview = results[0].results[0] as Record<string, number> | undefined;
+    if (!overview || overview.bills_shared === 0) {
       return { available: false, message: "Not enough data for this combination yet" };
-    }
-
-    let totalCount = 0;
-    let weightedQuoted = 0;
-    let weightedFinal = 0;
-    let weightedSurprise = 0;
-    let maxSurprise = -Infinity;
-    let minSurprise = Infinity;
-
-    for (const row of result.results) {
-      const r = row as Record<string, number>;
-      totalCount += r.report_count;
-      weightedQuoted += r.avg_quoted * r.report_count;
-      weightedFinal += r.avg_final * r.report_count;
-      weightedSurprise += r.avg_surprise_pct * r.report_count;
-      maxSurprise = Math.max(maxSurprise, r.max_surprise_pct);
-      minSurprise = Math.min(minSurprise, r.min_surprise_pct);
     }
 
     return {
       available: true,
-      report_count: totalCount,
-      avg_quoted: Math.round(weightedQuoted / totalCount),
-      avg_final: Math.round(weightedFinal / totalCount),
-      avg_surprise_pct: Math.round((weightedSurprise / totalCount) * 100) / 100,
-      max_surprise_pct: Math.round(maxSurprise * 100) / 100,
-      min_surprise_pct: Math.round(minSurprise * 100) / 100,
+      bills_shared: overview.bills_shared,
+      avg_quoted: Math.round(overview.avg_quoted),
+      avg_final: Math.round(overview.avg_final),
+      avg_surprise_pct: Math.round(overview.avg_surprise * 100) / 100,
+      max_surprise_pct: Math.round(overview.max_surprise * 100) / 100,
+      min_surprise_pct: Math.round(overview.min_surprise * 100) / 100,
+      by_type_insurance: results[1].results,
+      absurd_charges: results[2].results,
+      insurance_analysis: results[3].results,
     };
   });
 }
@@ -523,6 +539,134 @@ export async function handleInsights(env: Env): Promise<Response> {
       top_procedures: topProcedures,
       insurance_breakdown: insuranceBreakdown,
       tier_breakdown: tierBreakdown,
+    };
+  });
+}
+
+export async function handleExploreOverview(
+  url: URL,
+  env: Env
+): Promise<Response> {
+  const city = url.searchParams.get("city") || "";
+  const category = url.searchParams.get("category") || "";
+  const procedure = url.searchParams.get("procedure") || "";
+  const tier = url.searchParams.get("tier") || "";
+
+  const conditions: string[] = ["quarantined = 0"];
+  const joinConditions: string[] = ["r.quarantined = 0"];
+  const bindings: (string | number)[] = [];
+  const joinBindings: (string | number)[] = [];
+
+  if (city) {
+    conditions.push("city = ?"); bindings.push(city);
+    joinConditions.push("r.city = ?"); joinBindings.push(city);
+  }
+  if (tier) {
+    conditions.push("hospital_tier = ?"); bindings.push(tier);
+    joinConditions.push("r.hospital_tier = ?"); joinBindings.push(tier);
+  }
+  if (procedure) {
+    conditions.push("procedure_type = ?"); bindings.push(procedure);
+    joinConditions.push("r.procedure_type = ?"); joinBindings.push(procedure);
+  } else if (category && category in PROCEDURE_CATEGORIES) {
+    const slugs = Object.keys(PROCEDURE_CATEGORIES[category].procedures);
+    if (slugs.length > 0) {
+      conditions.push(`procedure_type IN (${slugs.map(() => "?").join(",")})`);
+      bindings.push(...slugs);
+      joinConditions.push(`r.procedure_type IN (${slugs.map(() => "?").join(",")})`);
+      joinBindings.push(...slugs);
+    }
+  }
+
+  const where = conditions.join(" AND ");
+  const joinWhere = joinConditions.join(" AND ");
+
+  const hasAnyFilter = !!(city || category || procedure || tier);
+  const groupDims: string[] = [];
+  if (!hasAnyFilter) {
+    groupDims.push("city");
+  } else {
+    if (!city) groupDims.push("city");
+    if (!procedure) groupDims.push("procedure_type");
+    if (!tier) groupDims.push("hospital_tier");
+  }
+
+  const parts = [city, procedure || category, tier].filter(Boolean);
+  const cacheKey = parts.length > 0 ? `ov2:${parts.join(":")}` : "ov2:all";
+
+  return cachedResponse(env, cacheKey, CACHE_TTL.overview, async () => {
+    const queries = [
+      env.DB.prepare(
+        `SELECT COUNT(*) as bills_shared,
+                COALESCE(AVG(surprise_percentage), 0) as avg_surprise,
+                COALESCE(AVG(quoted_amount), 0) as avg_quoted,
+                COALESCE(AVG(final_amount), 0) as avg_final,
+                COALESCE(SUM(final_amount - quoted_amount), 0) as total_overbilled
+         FROM reports WHERE ${where}`
+      ).bind(...bindings),
+      env.DB.prepare(
+        `SELECT insurance_used,
+                COUNT(*) as bills_shared,
+                AVG(surprise_percentage) as avg_surprise,
+                AVG(quoted_amount) as avg_quoted,
+                AVG(final_amount) as avg_final
+         FROM reports WHERE ${where}
+         GROUP BY insurance_used`
+      ).bind(...bindings),
+      env.DB.prepare(
+        `SELECT si.id, si.description, si.amount, si.upvotes,
+                r.city, r.hospital_tier, r.procedure_type
+         FROM surprise_items si
+         JOIN reports r ON si.report_id = r.id
+         WHERE ${joinWhere}
+         ORDER BY si.amount DESC
+         LIMIT 5`
+      ).bind(...joinBindings),
+    ];
+
+    if (groupDims.length > 0) {
+      const groupBy = groupDims.join(", ");
+      queries.push(
+        env.DB.prepare(
+          `SELECT ${groupBy},
+                  COUNT(*) as bills_shared,
+                  AVG(quoted_amount) as avg_quoted,
+                  AVG(final_amount) as avg_final,
+                  AVG(surprise_percentage) as avg_surprise,
+                  MAX(surprise_percentage) as max_surprise,
+                  MIN(surprise_percentage) as min_surprise
+           FROM reports WHERE ${where}
+           GROUP BY ${groupBy}
+           HAVING COUNT(*) >= 1
+           ORDER BY COUNT(*) DESC
+           LIMIT 30`
+        ).bind(...bindings)
+      );
+    }
+
+    const results = await env.DB.batch(queries);
+    const kpis = results[0].results[0] as Record<string, unknown> | undefined;
+
+    const insurance = (results[1].results as Array<Record<string, unknown>>).map(row => ({
+      insurance_used: row.insurance_used as string,
+      bills_shared: row.bills_shared as number,
+      avg_surprise: Math.round((row.avg_surprise as number) * 100) / 100,
+      avg_quoted: Math.round(row.avg_quoted as number),
+      avg_final: Math.round(row.avg_final as number),
+    }));
+
+    return {
+      kpis: {
+        bills_shared: kpis?.bills_shared ?? 0,
+        avg_surprise: Math.round((kpis?.avg_surprise as number ?? 0) * 100) / 100,
+        avg_quoted: Math.round(kpis?.avg_quoted as number ?? 0),
+        avg_final: Math.round(kpis?.avg_final as number ?? 0),
+        total_overbilled: kpis?.total_overbilled ?? 0,
+      },
+      dimensions: groupDims,
+      table: groupDims.length > 0 ? results[3].results : [],
+      insurance,
+      absurd_charges: results[2].results,
     };
   });
 }

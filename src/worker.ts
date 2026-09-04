@@ -11,6 +11,7 @@ import {
   handleFeed,
   handleCities,
   handleProcedures,
+  handleExploreOverview,
 } from "./read";
 
 function corsHeaders(): HeadersInit {
@@ -74,6 +75,8 @@ export default {
         const category = path.split("/api/category/")[1];
         if (!category) return addCors(jsonError("Category required", 400));
         response = await handleCategoryPage(category, env);
+      } else if (request.method === "GET" && path === "/api/explore/overview") {
+        response = await handleExploreOverview(url, env);
       } else if (request.method === "GET" && path === "/api/absurd") {
         response = await handleAbsurdFeed(url, env);
       } else if (request.method === "GET" && path === "/api/calculator") {

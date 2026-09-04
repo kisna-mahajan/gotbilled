@@ -100,69 +100,71 @@
 <!-- Divider -->
 <div class="border-t border-ink-50"></div>
 
-<!-- City Leaderboard -->
-{#if data.stats?.city_leaderboard && data.stats.city_leaderboard.length > 0}
-<section class="max-w-5xl mx-auto px-6 py-20">
-  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Most overbilled cities</h2>
+<!-- 3-column grid: Cities | Categories | Absurd Charge -->
+{#if data.stats && (data.stats.city_leaderboard?.length || data.stats.top_categories?.length || data.stats.top_absurd_charge)}
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <div class="grid md:grid-cols-3 gap-10">
+    <!-- Cities -->
+    {#if data.stats.city_leaderboard?.length}
+      <div>
+        <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-5">Most overbilled cities</h2>
+        <div class="space-y-0.5">
+          {#each data.stats.city_leaderboard as city, i}
+            <a href="/explore?city={city.city}" class="flex items-center gap-3 py-2.5 px-2 -mx-2 rounded-lg hover:bg-ink-50 transition-colors group">
+              <span class="text-ink-200 font-mono text-xs w-4 text-right">{i + 1}</span>
+              <span class="flex-1 text-sm font-medium group-hover:text-pop-red transition-colors truncate">{cityName(city.city)}</span>
+              <span class="font-mono font-bold text-sm min-w-[3.5rem] text-right"
+                class:text-pop-red={city.avg_surprise > 20}
+                class:text-pop-amber={city.avg_surprise > 0 && city.avg_surprise <= 20}
+                class:text-pop-green={city.avg_surprise <= 0}>
+                {Math.round(city.avg_surprise)}%
+              </span>
+            </a>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
-  <div class="space-y-1">
-    {#each data.stats.city_leaderboard as city, i}
-      <a href="/explore?city={city.city}" class="flex items-center gap-6 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors group">
-        <span class="text-ink-200 font-mono text-sm w-6 text-right">{i + 1}</span>
-        <span class="flex-1 font-medium group-hover:text-pop-red transition-colors">{cityName(city.city)}</span>
-        <span class="font-mono font-bold text-lg min-w-[4rem] text-right"
-          class:text-pop-red={city.avg_surprise > 20}
-          class:text-pop-amber={city.avg_surprise > 0 && city.avg_surprise <= 20}
-          class:text-pop-green={city.avg_surprise <= 0}>
-          {Math.round(city.avg_surprise)}% overbilling
-        </span>
-      </a>
-    {/each}
-  </div>
-</section>
-{/if}
+    <!-- Categories -->
+    {#if data.stats.top_categories?.length}
+      <div>
+        <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-5">Most overbilled categories</h2>
+        <div class="space-y-0.5">
+          {#each data.stats.top_categories as cat, i}
+            <a href="/explore?category={cat.category}" class="flex items-center gap-3 py-2.5 px-2 -mx-2 rounded-lg hover:bg-ink-50 transition-colors group">
+              <span class="text-ink-200 font-mono text-xs w-4 text-right">{i + 1}</span>
+              <span class="flex-1 text-sm font-medium group-hover:text-pop-red transition-colors truncate">{cat.category_name}</span>
+              <span class="font-mono font-bold text-sm min-w-[3.5rem] text-right"
+                class:text-pop-red={cat.avg_surprise > 20}
+                class:text-pop-amber={cat.avg_surprise > 0 && cat.avg_surprise <= 20}
+                class:text-pop-green={cat.avg_surprise <= 0}>
+                {Math.round(cat.avg_surprise)}%
+              </span>
+            </a>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
-<!-- Most Overbilled Categories -->
-{#if data.stats?.top_categories && data.stats.top_categories.length > 0}
-<div class="border-t border-ink-50"></div>
-<section class="max-w-5xl mx-auto px-6 py-20">
-  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Most overbilled categories</h2>
-
-  <div class="space-y-1">
-    {#each data.stats.top_categories as cat, i}
-      <a href="/explore?category={cat.category}" class="flex items-center gap-6 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors group">
-        <span class="text-ink-200 font-mono text-sm w-6 text-right">{i + 1}</span>
-        <span class="flex-1 font-medium group-hover:text-pop-red transition-colors">{cat.category_name}</span>
-        <span class="font-mono font-bold text-lg min-w-[4rem] text-right"
-          class:text-pop-red={cat.avg_surprise > 20}
-          class:text-pop-amber={cat.avg_surprise > 0 && cat.avg_surprise <= 20}
-          class:text-pop-green={cat.avg_surprise <= 0}>
-          {Math.round(cat.avg_surprise)}% overbilling
-        </span>
-      </a>
-    {/each}
-  </div>
-</section>
-{/if}
-
-<!-- Absurd Charge -->
-{#if data.stats?.top_absurd_charge}
-<div class="border-t border-ink-50"></div>
-<section class="max-w-5xl mx-auto px-6 py-20">
-  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Most absurd charge</h2>
-
-  <div class="max-w-lg">
-    <p class="text-2xl md:text-3xl font-semibold leading-snug mb-4">
-      &ldquo;{data.stats.top_absurd_charge.description}&rdquo;
-    </p>
-    <div class="stat-value text-pop-red !text-4xl mb-4">
-      ₹{data.stats.top_absurd_charge.amount.toLocaleString("en-IN")}
-    </div>
-    <div class="flex gap-3 text-sm text-ink-300">
-      <span>{cityName(data.stats.top_absurd_charge.city)}</span>
-      <span>&middot;</span>
-      <span>{data.stats.top_absurd_charge.upvotes} found this absurd</span>
-    </div>
+    <!-- Absurd Charge -->
+    {#if data.stats.top_absurd_charge}
+      <div>
+        <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-5">Most absurd charge</h2>
+        <div class="bg-ink-50 rounded-2xl p-6">
+          <p class="text-lg font-semibold leading-snug mb-3">
+            &ldquo;{data.stats.top_absurd_charge.description}&rdquo;
+          </p>
+          <div class="text-3xl font-black font-mono tabular-nums text-pop-red mb-3">
+            ₹{data.stats.top_absurd_charge.amount.toLocaleString("en-IN")}
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs text-ink-300">
+            <span>{cityName(data.stats.top_absurd_charge.city)}</span>
+            <span>&middot;</span>
+            <span>{data.stats.top_absurd_charge.upvotes} found this absurd</span>
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 </section>
 {/if}
@@ -193,4 +195,3 @@
     <a href="/submit" class="btn-primary">Share your bill</a>
   </div>
 </section>
-

@@ -179,12 +179,54 @@ export interface FeedData {
 export interface CalculatorData {
   available: boolean;
   message?: string;
-  report_count?: number;
+  bills_shared?: number;
   avg_quoted?: number;
   avg_final?: number;
   avg_surprise_pct?: number;
   max_surprise_pct?: number;
   min_surprise_pct?: number;
+  by_type_insurance?: Array<{
+    hospital_tier: string;
+    insurance_used: string;
+    bills_shared: number;
+    avg_quoted: number;
+    avg_final: number;
+    avg_surprise: number;
+  }>;
+  absurd_charges?: Array<{
+    id: string;
+    description: string;
+    amount: number;
+    upvotes: number;
+    hospital_tier: string;
+  }>;
+  insurance_analysis?: Array<{
+    insurance_used: string;
+    bills_shared: number;
+    avg_surprise: number;
+    avg_quoted: number;
+    avg_final: number;
+  }>;
+}
+
+export interface ExploreOverviewData {
+  kpis: {
+    bills_shared: number;
+    avg_surprise: number;
+    avg_quoted: number;
+    avg_final: number;
+    total_overbilled: number;
+  };
+  dimensions: string[];
+  table: Array<Record<string, unknown>>;
+  insurance: Array<{
+    insurance_used: string;
+    bills_shared: number;
+    avg_surprise: number;
+    avg_quoted: number;
+    avg_final: number;
+  }>;
+  absurd_charges: AbsurdItem[];
 }
 
 export function getCityData(city: string) {
@@ -215,10 +257,18 @@ export function getAbsurdFeed(page = 1, limit = 20, filters?: FeedFilters) {
   return fetchApi<AbsurdFeedData>(url);
 }
 
-export function getCalculator(procedure: string, city: string, tier?: string) {
-  let url = `/api/calculator?procedure=${procedure}&city=${city}`;
-  if (tier) url += `&tier=${tier}`;
-  return fetchApi<CalculatorData>(url);
+export function getCalculator(procedure: string, city: string) {
+  return fetchApi<CalculatorData>(`/api/calculator?procedure=${encodeURIComponent(procedure)}&city=${encodeURIComponent(city)}`);
+}
+
+export function getExploreOverview(filters?: FeedFilters) {
+  const params: string[] = [];
+  if (filters?.city) params.push(`city=${encodeURIComponent(filters.city)}`);
+  if (filters?.procedure) params.push(`procedure=${encodeURIComponent(filters.procedure)}`);
+  if (filters?.category) params.push(`category=${encodeURIComponent(filters.category)}`);
+  if (filters?.tier) params.push(`tier=${encodeURIComponent(filters.tier)}`);
+  const qs = params.length ? `?${params.join("&")}` : "";
+  return fetchApi<ExploreOverviewData>(`/api/explore/overview${qs}`);
 }
 
 export function getFeed(page = 1, limit = 20, filters?: FeedFilters) {
