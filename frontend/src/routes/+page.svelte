@@ -57,14 +57,14 @@
       </div>
       <div>
         <div class="stat-value text-pop-red">{animatedSurprise}%</div>
-        <div class="stat-label">Avg surprise</div>
+        <div class="stat-label">Avg % overbilling</div>
       </div>
       <div>
         {#if topCategory}
           <a href="/explore?category={topCategory.category}" class="block group">
             <div class="stat-value text-pop-red group-hover:underline">{Math.round(topCategory.avg_surprise)}%</div>
             <div class="stat-label">{topCategory.category_name}</div>
-            <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">Most overbilled category</div>
+            <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled category</div>
           </a>
         {:else}
           <div class="stat-value text-ink-200">—</div>
@@ -76,7 +76,7 @@
           <a href="/explore?city={topCity.city}" class="block group">
             <div class="stat-value text-pop-red group-hover:underline">{Math.round(topCity.avg_surprise)}%</div>
             <div class="stat-label">{cityName(topCity.city)}</div>
-            <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">Most overbilled city</div>
+            <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled city</div>
           </a>
         {:else}
           <div class="stat-value text-ink-200">—</div>
@@ -103,19 +103,18 @@
 <!-- City Leaderboard -->
 {#if data.stats?.city_leaderboard && data.stats.city_leaderboard.length > 0}
 <section class="max-w-5xl mx-auto px-6 py-20">
-  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Top reporting cities</h2>
+  <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-8">Most overbilled cities</h2>
 
   <div class="space-y-1">
     {#each data.stats.city_leaderboard as city, i}
       <a href="/explore?city={city.city}" class="flex items-center gap-6 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors group">
         <span class="text-ink-200 font-mono text-sm w-6 text-right">{i + 1}</span>
         <span class="flex-1 font-medium group-hover:text-pop-red transition-colors">{cityName(city.city)}</span>
-        <span class="text-ink-300 text-sm">{city.reports} reports</span>
         <span class="font-mono font-bold text-lg min-w-[4rem] text-right"
           class:text-pop-red={city.avg_surprise > 20}
           class:text-pop-amber={city.avg_surprise > 0 && city.avg_surprise <= 20}
           class:text-pop-green={city.avg_surprise <= 0}>
-          {city.avg_surprise > 0 ? "+" : ""}{Math.round(city.avg_surprise)}%
+          {Math.round(city.avg_surprise)}% overbilling
         </span>
       </a>
     {/each}
@@ -134,12 +133,11 @@
       <a href="/explore?category={cat.category}" class="flex items-center gap-6 py-4 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors group">
         <span class="text-ink-200 font-mono text-sm w-6 text-right">{i + 1}</span>
         <span class="flex-1 font-medium group-hover:text-pop-red transition-colors">{cat.category_name}</span>
-        <span class="text-ink-300 text-sm">{cat.reports} reports</span>
         <span class="font-mono font-bold text-lg min-w-[4rem] text-right"
           class:text-pop-red={cat.avg_surprise > 20}
           class:text-pop-amber={cat.avg_surprise > 0 && cat.avg_surprise <= 20}
           class:text-pop-green={cat.avg_surprise <= 0}>
-          {cat.avg_surprise > 0 ? "+" : ""}{Math.round(cat.avg_surprise)}%
+          {Math.round(cat.avg_surprise)}% overbilling
         </span>
       </a>
     {/each}

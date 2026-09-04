@@ -326,14 +326,14 @@
           </div>
           <div>
             <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red">{Math.round(data.stats.national_avg_surprise)}%</div>
-            <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg surprise</div>
+            <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg % overbilling</div>
           </div>
           <div>
             {#if data.stats.top_categories?.[0]}
               <a href="/explore?category={data.stats.top_categories[0].category}" class="block group">
                 <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red group-hover:underline">{Math.round(data.stats.top_categories[0].avg_surprise)}%</div>
                 <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">{data.stats.top_categories[0].category_name}</div>
-                <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">Most overbilled category</div>
+                <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled category</div>
               </a>
             {:else}
               <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-ink-200">—</div>
@@ -345,7 +345,7 @@
               <a href="/explore?city={data.stats.city_leaderboard[0].city}" class="block group">
                 <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-pop-red group-hover:underline">{Math.round(data.stats.city_leaderboard[0].avg_surprise)}%</div>
                 <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">{cityName(data.stats.city_leaderboard[0].city)}</div>
-                <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">Most overbilled city</div>
+                <div class="text-[10px] text-ink-200 uppercase tracking-widest mt-0.5">overbilling on avg &middot; most overbilled city</div>
               </a>
             {:else}
               <div class="text-3xl md:text-4xl font-black font-mono tabular-nums text-ink-200">—</div>
@@ -374,7 +374,7 @@
             </div>
             <div>
               <div class="text-2xl font-black font-mono tabular-nums {surpriseColor(cityData.overview.avg_surprise)}">{Math.round(cityData.overview.avg_surprise)}%</div>
-              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg surprise</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg % overbilling</div>
             </div>
             <div>
               <div class="text-2xl font-black font-mono tabular-nums">{shortCurrency(Math.round(cityData.overview.avg_quoted))}</div>
@@ -399,7 +399,7 @@
                   <th class="pb-2 pr-4 text-right">Reports</th>
                   <th class="pb-2 pr-4 text-right">Avg Quoted</th>
                   <th class="pb-2 pr-4 text-right">Avg Final</th>
-                  <th class="pb-2 text-right">Surprise</th>
+                  <th class="pb-2 text-right">% Overbilling</th>
                 </tr>
               </thead>
               <tbody>
@@ -451,7 +451,7 @@
             </div>
             <div>
               <div class="text-2xl font-black font-mono tabular-nums {surpriseColor(categoryData.overview.avg_surprise)}">{Math.round(categoryData.overview.avg_surprise)}%</div>
-              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg surprise</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg % overbilling</div>
             </div>
             <div>
               <div class="text-2xl font-black font-mono tabular-nums">{shortCurrency(Math.round(categoryData.overview.avg_quoted))}</div>
@@ -475,7 +475,7 @@
                   <th class="pb-2 pr-4 text-right">Reports</th>
                   <th class="pb-2 pr-4 text-right">Avg Quoted</th>
                   <th class="pb-2 pr-4 text-right">Avg Final</th>
-                  <th class="pb-2 text-right">Surprise</th>
+                  <th class="pb-2 text-right">% Overbilling</th>
                 </tr>
               </thead>
               <tbody>
@@ -513,7 +513,7 @@
             </div>
             <div>
               <div class="text-2xl font-black font-mono tabular-nums {surpriseColor(procedureData.overview.avg_surprise)}">{Math.round(procedureData.overview.avg_surprise)}%</div>
-              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg surprise</div>
+              <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">Avg % overbilling</div>
             </div>
             <div>
               <div class="text-2xl font-black font-mono tabular-nums">{shortCurrency(Math.round(procedureData.overview.avg_quoted))}</div>
@@ -537,7 +537,7 @@
                   <th class="pb-2 pr-4 text-right">Reports</th>
                   <th class="pb-2 pr-4 text-right">Avg Quoted</th>
                   <th class="pb-2 pr-4 text-right">Avg Final</th>
-                  <th class="pb-2 text-right">Surprise</th>
+                  <th class="pb-2 text-right">% Overbilling</th>
                 </tr>
               </thead>
               <tbody>
@@ -565,16 +565,15 @@
     <!-- City leaderboard (when no filter) -->
     {#if !filterCity && !filterCategory && !filterProcedure && data.stats?.city_leaderboard && data.stats.city_leaderboard.length > 0}
       <div class="mb-12">
-        <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">City leaderboard</h2>
+        <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Most overbilled cities</h2>
         <div class="space-y-0.5">
           {#each data.stats.city_leaderboard as city, i}
             <button on:click={() => { filterCity = city.city; }}
               class="w-full flex items-center gap-4 py-3 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors text-left">
               <span class="text-ink-200 font-mono text-sm w-5 text-right">{i + 1}</span>
               <span class="flex-1 font-medium">{cityName(city.city)}</span>
-              <span class="text-ink-300 text-sm">{city.reports}</span>
               <span class="font-mono font-bold text-base min-w-[3.5rem] text-right {surpriseColor(city.avg_surprise)}">
-                {city.avg_surprise > 0 ? "+" : ""}{Math.round(city.avg_surprise)}%
+                {Math.round(city.avg_surprise)}% overbilling
               </span>
             </button>
           {/each}
@@ -625,7 +624,7 @@
 
               <div class="border-t border-ink-100 pt-4">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm text-ink-500">Avg surprise</span>
+                  <span class="text-sm text-ink-500">Avg % overbilling</span>
                   <span class="text-3xl font-black font-mono tabular-nums {surpriseColor(calcResult.avg_surprise_pct ?? 0)}">
                     {(calcResult.avg_surprise_pct ?? 0) > 0 ? "+" : ""}{Math.round(calcResult.avg_surprise_pct ?? 0)}%
                   </span>

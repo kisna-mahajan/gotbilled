@@ -62,7 +62,7 @@ export async function handleStats(env: Env): Promise<Response> {
          FROM aggregates
          GROUP BY city
          HAVING SUM(report_count) >= ?
-         ORDER BY reports DESC
+         ORDER BY avg_surprise DESC
          LIMIT 10`
       ).bind(MIN_AGGREGATION_THRESHOLD),
       env.DB.prepare(
