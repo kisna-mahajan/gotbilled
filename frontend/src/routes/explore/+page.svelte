@@ -564,23 +564,130 @@
       </div>
     {/if}
 
-    <!-- City leaderboard (when no filter) -->
-    {#if !filterCity && !filterCategory && !filterProcedure && data.stats?.city_leaderboard && data.stats.city_leaderboard.length > 0}
-      <div class="mb-12">
-        <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Most overbilled cities</h2>
-        <div class="space-y-0.5">
-          {#each data.stats.city_leaderboard as city, i}
-            <button on:click={() => { filterCity = city.city; }}
-              class="w-full flex items-center gap-4 py-3 px-2 -mx-2 rounded-xl hover:bg-ink-50 transition-colors text-left">
-              <span class="text-ink-200 font-mono text-sm w-5 text-right">{i + 1}</span>
-              <span class="flex-1 font-medium">{cityName(city.city)}</span>
-              <span class="font-mono font-bold text-base min-w-[3.5rem] text-right {surpriseColor(city.avg_surprise)}">
-                {Math.round(city.avg_surprise)}% overbilling
-              </span>
-            </button>
-          {/each}
+    <!-- ===== SECTION 1: VIRALITY (no filters active) ===== -->
+    {#if !filterCity && !filterCategory && !filterProcedure}
+
+      <!-- Most Absurd Charge card -->
+      {#if data.stats?.top_absurd_charge}
+        <div class="bg-ink-50 rounded-2xl p-8 mb-10">
+          <div class="text-[10px] text-ink-200 uppercase tracking-[0.15em] mb-4">Most absurd charge reported</div>
+          <p class="text-xl md:text-2xl font-semibold leading-snug mb-3">
+            &ldquo;{data.stats.top_absurd_charge.description}&rdquo;
+          </p>
+          <div class="text-4xl md:text-5xl font-black font-mono tabular-nums text-pop-red mb-3">
+            ₹{data.stats.top_absurd_charge.amount.toLocaleString("en-IN")}
+          </div>
+          <div class="flex gap-3 text-sm text-ink-300">
+            <span>{cityName(data.stats.top_absurd_charge.city)}</span>
+            <span>&middot;</span>
+            <span>{data.stats.top_absurd_charge.upvotes} found this absurd</span>
+          </div>
         </div>
-      </div>
+      {/if}
+
+      <!-- City overbilling ranking with bar visualization -->
+      {#if data.stats && data.stats.city_leaderboard && data.stats.city_leaderboard.length > 0}
+        <div class="mb-12">
+          <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Most overbilled cities</h2>
+          <div class="space-y-2">
+            {#each data.stats.city_leaderboard as city, i}
+              <button on:click={() => { filterCity = city.city; }}
+                class="w-full text-left">
+                <div class="flex items-center gap-3 mb-1">
+                  <span class="text-ink-200 font-mono text-xs w-5 text-right">{i + 1}</span>
+                  <span class="flex-1 text-sm font-medium">{cityName(city.city)}</span>
+                  <span class="font-mono font-bold text-sm {surpriseColor(city.avg_surprise)}">
+                    {Math.round(city.avg_surprise)}%
+                  </span>
+                </div>
+                <div class="ml-8">
+                  <div class="h-2 bg-ink-50 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-500
+                      {city.avg_surprise > 20 ? 'bg-pop-red' : city.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
+                      style="width: {Math.min(100, Math.max(5, Math.abs(city.avg_surprise)))}%">
+                    </div>
+                  </div>
+                </div>
+              </button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- ===== SECTION 2: CONSUMER HELPFULNESS ===== -->
+
+      <!-- Top 10 Most Overbilled Procedures -->
+      {#if data.insights && data.insights.top_procedures && data.insights.top_procedures.length > 0}
+        <div class="mb-12">
+          <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Most overbilled procedures</h2>
+          <div class="space-y-2">
+            {#each data.insights.top_procedures as proc}
+              {@const maxSurprise = Math.max(...data.insights.top_procedures.map(p => Math.abs(p.avg_surprise)))}
+              <div class="flex items-center gap-3">
+                <span class="text-sm w-48 truncate" title={proc.display_name}>{proc.display_name}</span>
+                <div class="flex-1 h-5 bg-ink-50 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full {proc.avg_surprise > 20 ? 'bg-pop-red' : proc.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
+                    style="width: {Math.max(5, (Math.abs(proc.avg_surprise) / maxSurprise) * 100)}%">
+                  </div>
+                </div>
+                <span class="font-mono font-bold text-sm min-w-[4rem] text-right {surpriseColor(proc.avg_surprise)}">
+                  {Math.round(proc.avg_surprise)}%
+                </span>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- Insurance Impact -->
+      {#if data.insights && data.insights.insurance_breakdown && data.insights.insurance_breakdown.length > 0}
+        <div class="mb-12">
+          <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Does insurance help?</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {#each data.insights.insurance_breakdown as ins}
+              <div class="bg-ink-50 rounded-xl p-4 text-center">
+                <div class="text-2xl font-black font-mono tabular-nums {surpriseColor(ins.avg_surprise)}">
+                  {Math.round(ins.avg_surprise)}%
+                </div>
+                <div class="text-xs text-ink-300 uppercase tracking-widest mt-1">
+                  {ins.insurance_used === 'yes' ? 'Insured' : ins.insurance_used === 'no' ? 'Uninsured' : ins.insurance_used === 'partial' ? 'Partial' : 'Govt Scheme'}
+                </div>
+                <div class="text-[10px] text-ink-200 mt-0.5">{ins.reports} reports</div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      <!-- ===== SECTION 3: JOURNALISM / POLICY ===== -->
+
+      <!-- Hospital Tier Comparison -->
+      {#if data.insights && data.insights.tier_breakdown && data.insights.tier_breakdown.length > 0}
+        <div class="mb-12">
+          <h2 class="text-sm text-ink-300 uppercase tracking-widest mb-4">Overbilling by hospital type</h2>
+          <div class="space-y-3">
+            {#each data.insights.tier_breakdown.sort((a, b) => b.avg_surprise - a.avg_surprise) as tier}
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium">
+                    {tier.hospital_tier === 'corporate_chain' ? 'Corporate Chain' : tier.hospital_tier === 'private_standalone' ? 'Private' : tier.hospital_tier === 'government' ? 'Government' : 'Trust / Charity'}
+                  </span>
+                  <span class="font-mono font-bold text-sm {surpriseColor(tier.avg_surprise)}">
+                    {Math.round(tier.avg_surprise)}% avg overbilling
+                  </span>
+                </div>
+                <div class="h-3 bg-ink-50 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full transition-all
+                    {tier.avg_surprise > 20 ? 'bg-pop-red' : tier.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
+                    style="width: {Math.min(100, Math.max(5, Math.abs(tier.avg_surprise)))}%">
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
     {/if}
 
     {#if !data.stats}
