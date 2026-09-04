@@ -352,7 +352,7 @@ export async function handleCalculator(
     );
   }
 
-  const cacheKey = `calculator:${procedure}:${city}${tier ? `:${tier}` : ""}`;
+  const cacheKey = `calc2:${procedure}:${city}${tier ? `:${tier}` : ""}`;
 
   return cachedResponse(env, cacheKey, CACHE_TTL.calculator, async () => {
     let query = `SELECT report_count, avg_quoted, avg_final, avg_surprise_pct,
