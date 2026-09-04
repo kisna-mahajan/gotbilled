@@ -1,10 +1,10 @@
 -- 300-record seed data for gotbilled.in
 -- Generated with seeded PRNG for reproducibility
 
-DELETE FROM surprise_items;
-DELETE FROM aggregates;
 DELETE FROM upvote_tracking;
 DELETE FROM moderation_log;
+DELETE FROM surprise_items;
+DELETE FROM aggregates;
 DELETE FROM reports;
 
 INSERT INTO reports (id, procedure_type, city, state, hospital_tier, insurance_used, quoted_amount, final_amount, surprise_percentage, procedure_year, stay_days, flagged, quarantined, ip_hash, created_at) VALUES
