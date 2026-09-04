@@ -352,7 +352,7 @@ export async function handleCalculator(
     );
   }
 
-  const cacheKey = `calc3:${procedure}:${city}`;
+  const cacheKey = `calc4:${procedure}:${city}`;
 
   return cachedResponse(env, cacheKey, CACHE_TTL.calculator, async () => {
     const results = await env.DB.batch([
@@ -382,8 +382,8 @@ export async function handleCalculator(
          FROM surprise_items si
          JOIN reports r ON si.report_id = r.id
          WHERE r.procedure_type = ? AND r.city = ? AND r.quarantined = 0
-         ORDER BY si.amount DESC
-         LIMIT 5`
+         ORDER BY si.upvotes DESC, si.amount DESC
+         LIMIT 10`
       ).bind(procedure, city),
       env.DB.prepare(
         `SELECT insurance_used,
@@ -592,7 +592,7 @@ export async function handleExploreOverview(
   }
 
   const parts = [city, procedure || category, tier].filter(Boolean);
-  const cacheKey = parts.length > 0 ? `ov2:${parts.join(":")}` : "ov2:all";
+  const cacheKey = parts.length > 0 ? `ov3:${parts.join(":")}` : "ov3:all";
 
   return cachedResponse(env, cacheKey, CACHE_TTL.overview, async () => {
     const queries = [
@@ -619,8 +619,8 @@ export async function handleExploreOverview(
          FROM surprise_items si
          JOIN reports r ON si.report_id = r.id
          WHERE ${joinWhere}
-         ORDER BY si.amount DESC
-         LIMIT 5`
+         ORDER BY si.upvotes DESC, si.amount DESC
+         LIMIT 10`
       ).bind(...joinBindings),
     ];
 
