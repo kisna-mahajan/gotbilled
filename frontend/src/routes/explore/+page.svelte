@@ -6,7 +6,7 @@
     getExploreOverview,
     upvoteItem,
   } from "$lib/api";
-  import { cityToSvg, INDIA_OUTLINE_POINTS } from "$lib/india-geo";
+  import { cityToSvg, INDIA_OUTLINE_POINTS, ANDAMAN_POLYGONS, LAKSHADWEEP_DOTS } from "$lib/india-geo";
   import type {
     CityOption,
     ProcedureOption,
@@ -390,19 +390,33 @@
       {#if data.stats?.city_leaderboard?.length}
         <div class="grid md:grid-cols-[2fr_3fr] gap-8 mb-14">
           <div>
-            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-4 font-semibold">Most overbilled cities</h2>
-            <div class="space-y-0.5">
+            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-5 font-semibold">Most overbilled cities</h2>
+            <div>
               {#each data.stats.city_leaderboard as city, i}
+                {@const rankLabel = i === 0 ? 'Worst offender' : i === 1 ? 'Runner-up' : 'Close behind'}
                 <button
                   on:click={() => { filterCity = city.city; }}
                   on:mouseenter={() => (hoveredCity = city.city)}
                   on:mouseleave={() => (hoveredCity = "")}
-                  class="w-full text-left flex items-center gap-2.5 py-2 px-2 -mx-2 rounded-lg transition-colors
+                  class="w-full text-left flex items-center gap-3 rounded-lg transition-colors -mx-2 px-2
+                    {i < 3 ? 'py-3' : 'py-1.5'}
                     {hoveredCity === city.city ? 'bg-ink-50' : 'hover:bg-ink-50'}">
-                  <span class="text-ink-200 font-mono text-[11px] w-4 text-right">{i + 1}</span>
-                  <span class="flex-1 text-sm font-medium truncate">{cityName(city.city)}</span>
-                  <span class="font-mono font-bold text-sm {surpriseColor(city.avg_surprise)}">{Math.round(city.avg_surprise)}%</span>
+                  {#if i < 3}
+                    <span class="flex-shrink-0 w-5 h-5 rounded-full bg-pop-red/10 text-pop-red flex items-center justify-center font-mono text-[11px] font-bold">{i + 1}</span>
+                  {:else}
+                    <span class="text-ink-200 font-mono text-[11px] w-5 text-center">{i + 1}</span>
+                  {/if}
+                  <div class="flex-1 min-w-0">
+                    <span class="{i < 3 ? 'text-base font-bold' : 'text-sm font-medium'} truncate block">{cityName(city.city)}</span>
+                    {#if i < 3}
+                      <span class="text-[10px] text-pop-red/70 uppercase tracking-widest font-medium">{rankLabel}</span>
+                    {/if}
+                  </div>
+                  <span class="font-mono font-bold flex-shrink-0 {i < 3 ? 'text-base' : 'text-sm'} {surpriseColor(city.avg_surprise)}">{Math.round(city.avg_surprise)}%</span>
                 </button>
+                {#if i === 2}
+                  <div class="border-t border-ink-50 my-1.5"></div>
+                {/if}
               {/each}
             </div>
           </div>
@@ -412,62 +426,137 @@
                 points={INDIA_OUTLINE_POINTS}
                 fill="white"
                 stroke="#d4d4d8"
-                stroke-width="1.5"
+                stroke-width="1"
                 stroke-linejoin="round"
               />
-              {#each data.stats.city_leaderboard as city}
-                {@const pos = cityToSvg(city.city)}
-                {#if pos}
-                  <!-- svelte-ignore a11y-click-events-have-key-events -->
-                  <g
-                    on:mouseenter={() => (hoveredCity = city.city)}
-                    on:mouseleave={() => (hoveredCity = "")}
-                    on:click={() => { filterCity = city.city; }}
-                    role="button" tabindex="0"
-                    class="cursor-pointer">
-                    <circle
-                      cx={pos.x} cy={pos.y}
-                      r={hoveredCity === city.city ? 10 : 7}
-                      fill={surpriseFill(city.avg_surprise)}
-                      opacity={hoveredCity && hoveredCity !== city.city ? 0.25 : 0.85}
-                      class="transition-all duration-150"
-                    />
-                    {#if hoveredCity === city.city}
-                      <text
-                        x={pos.x} y={Number(pos.y) - 15}
-                        text-anchor="middle"
-                        fill="#18181b"
-                        stroke="white" stroke-width="3" paint-order="stroke"
-                        font-size="12" font-weight="600"
-                        class="pointer-events-none select-none">
-                        {cityName(city.city)} &middot; {Math.round(city.avg_surprise)}%
-                      </text>
-                    {/if}
-                  </g>
-                {/if}
+              {#each ANDAMAN_POLYGONS as poly}
+                <polygon
+                  points={poly}
+                  fill="white"
+                  stroke="#d4d4d8"
+                  stroke-width="0.8"
+                  stroke-linejoin="round"
+                />
               {/each}
+              {#each LAKSHADWEEP_DOTS as dot}
+                <circle cx={dot.x} cy={dot.y} r="1.8" fill="#d4d4d8" />
+              {/each}
+              {#if data.stats.all_cities_map}
+                {#each data.stats.all_cities_map as city}
+                  {@const pos = cityToSvg(city.city)}
+                  {#if pos}
+                    {#if data.stats.city_leaderboard.some(c => c.city === city.city)}
+                      <!-- svelte-ignore a11y-click-events-have-key-events -->
+                      <g
+                        on:mouseenter={() => (hoveredCity = city.city)}
+                        on:mouseleave={() => (hoveredCity = "")}
+                        on:click={() => { filterCity = city.city; }}
+                        role="button" tabindex="0"
+                        class="cursor-pointer">
+                        <circle
+                          cx={pos.x} cy={pos.y}
+                          r={hoveredCity === city.city ? 9 : Math.min(8, Math.max(4, Math.sqrt(Number(city.reports)) * 1.5))}
+                          fill={surpriseFill(city.avg_surprise)}
+                          opacity={hoveredCity && hoveredCity !== city.city ? 0.2 : 0.85}
+                          class="transition-all duration-150"
+                        />
+                        {#if hoveredCity === city.city}
+                          <text
+                            x={pos.x} y={Number(pos.y) - 14}
+                            text-anchor="middle"
+                            fill="#18181b"
+                            stroke="white" stroke-width="3" paint-order="stroke"
+                            font-size="11" font-weight="600"
+                            class="pointer-events-none select-none">
+                            {cityName(city.city)} · {Math.round(city.avg_surprise)}%
+                          </text>
+                        {/if}
+                      </g>
+                    {:else}
+                      <!-- svelte-ignore a11y-click-events-have-key-events -->
+                      <g
+                        on:mouseenter={() => (hoveredCity = city.city)}
+                        on:mouseleave={() => (hoveredCity = "")}
+                        on:click={() => { filterCity = city.city; }}
+                        role="button" tabindex="0"
+                        class="cursor-pointer">
+                        <circle
+                          cx={pos.x} cy={pos.y}
+                          r={hoveredCity === city.city ? 6 : Math.min(5, Math.max(2.5, Math.sqrt(Number(city.reports)) * 1))}
+                          fill={surpriseFill(city.avg_surprise)}
+                          opacity={hoveredCity && hoveredCity !== city.city ? 0.15 : 0.55}
+                          class="transition-all duration-150"
+                        />
+                        {#if hoveredCity === city.city}
+                          <text
+                            x={pos.x} y={Number(pos.y) - 10}
+                            text-anchor="middle"
+                            fill="#18181b"
+                            stroke="white" stroke-width="3" paint-order="stroke"
+                            font-size="10" font-weight="600"
+                            class="pointer-events-none select-none">
+                            {cityName(city.city)} · {Math.round(city.avg_surprise)}%
+                          </text>
+                        {/if}
+                      </g>
+                    {/if}
+                  {/if}
+                {/each}
+              {:else}
+                {#each data.stats.city_leaderboard as city}
+                  {@const pos = cityToSvg(city.city)}
+                  {#if pos}
+                    <!-- svelte-ignore a11y-click-events-have-key-events -->
+                    <g
+                      on:mouseenter={() => (hoveredCity = city.city)}
+                      on:mouseleave={() => (hoveredCity = "")}
+                      on:click={() => { filterCity = city.city; }}
+                      role="button" tabindex="0"
+                      class="cursor-pointer">
+                      <circle
+                        cx={pos.x} cy={pos.y}
+                        r={hoveredCity === city.city ? 9 : 6}
+                        fill={surpriseFill(city.avg_surprise)}
+                        opacity={hoveredCity && hoveredCity !== city.city ? 0.25 : 0.85}
+                        class="transition-all duration-150"
+                      />
+                      {#if hoveredCity === city.city}
+                        <text
+                          x={pos.x} y={Number(pos.y) - 14}
+                          text-anchor="middle"
+                          fill="#18181b"
+                          stroke="white" stroke-width="3" paint-order="stroke"
+                          font-size="11" font-weight="600"
+                          class="pointer-events-none select-none">
+                          {cityName(city.city)} · {Math.round(city.avg_surprise)}%
+                        </text>
+                      {/if}
+                    </g>
+                  {/if}
+                {/each}
+              {/if}
             </svg>
           </div>
         </div>
       {/if}
 
-      <!-- Row 2: Procedures + Absurd Charges -->
+      <!-- Row 2: Procedures + Absurd Charges (harmonized) -->
       <div class="grid md:grid-cols-2 gap-10 mb-14">
         {#if data.insights?.top_procedures?.length}
           {@const maxProc = Math.max(...data.insights.top_procedures.map(p => Math.abs(p.avg_surprise)), 1)}
           <div>
-            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-4 font-semibold">Most overbilled procedures</h2>
-            <div class="space-y-3">
+            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-5 font-semibold">Most overbilled procedures</h2>
+            <div class="space-y-2.5">
               {#each data.insights.top_procedures.slice(0, 10) as proc}
                 <button on:click={() => { filterProcedure = proc.procedure_type; }} class="w-full text-left group">
                   <div class="flex items-center justify-between mb-1">
                     <span class="text-sm truncate pr-2 group-hover:text-pop-red transition-colors" title={proc.display_name}>{proc.display_name}</span>
                     <span class="font-mono font-bold text-sm flex-shrink-0 {surpriseColor(proc.avg_surprise)}">{Math.round(proc.avg_surprise)}%</span>
                   </div>
-                  <div class="relative h-[2px] bg-ink-100 rounded-full">
-                    <div class="absolute h-[2px] rounded-full {proc.avg_surprise > 20 ? 'bg-pop-red' : proc.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
+                  <div class="relative h-[3px] bg-ink-100 rounded-full">
+                    <div class="absolute h-[3px] rounded-full {proc.avg_surprise > 20 ? 'bg-pop-red' : proc.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
                       style="width: {Math.max(3, (Math.abs(proc.avg_surprise) / maxProc) * 100)}%">
-                      <div class="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full
+                      <div class="absolute right-0 top-1/2 -translate-y-1/2 w-[7px] h-[7px] rounded-full
                         {proc.avg_surprise > 20 ? 'bg-pop-red' : proc.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"></div>
                     </div>
                   </div>
@@ -479,14 +568,14 @@
 
         {#if topAbsurdItems.length > 0}
           <div>
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between mb-5">
               <h2 class="text-xs text-ink-300 uppercase tracking-widest font-semibold">Top absurd charges</h2>
               <button on:click={() => switchTab('absurd')} class="text-xs text-ink-300 hover:text-ink-900 transition-colors">View all &rarr;</button>
             </div>
-            <div class="space-y-0.5">
+            <div class="space-y-0">
               {#each topAbsurdItems as item}
-                <div class="flex items-start gap-3 py-2.5 px-2 -mx-2 rounded-lg hover:bg-ink-50 transition-colors">
-                  <div class="flex-shrink-0">
+                <div class="flex items-start gap-3 py-[7px] px-2 -mx-2 rounded-lg hover:bg-ink-50 transition-colors">
+                  <div class="flex-shrink-0 pt-0.5">
                     <button on:click={() => item.id && handleUpvote(item.id)}
                       class="flex flex-col items-center gap-0 text-ink-200 hover:text-pop-red transition-colors"
                       title="This is absurd!">
@@ -508,27 +597,27 @@
         {/if}
       </div>
 
-      <!-- Row 3: Insurance + Hospital Type lollipop charts -->
+      <!-- Row 3: Insurance + Hospital Type (standardized lollipop charts) -->
       <div class="grid md:grid-cols-2 gap-10 mb-12">
         {#if data.insights?.insurance_breakdown?.length}
           {@const sortedIns = [...data.insights.insurance_breakdown].sort((a, b) => b.avg_surprise - a.avg_surprise)}
           {@const maxIns = Math.max(...sortedIns.map(i => Math.abs(i.avg_surprise)), 1)}
           <div>
-            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-4 font-semibold">Does insurance help?</h2>
-            <div class="space-y-4">
+            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-5 font-semibold">Does insurance help?</h2>
+            <div class="space-y-5">
               {#each sortedIns as ins}
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
                     <span class="text-sm font-medium">{insuranceLabels[ins.insurance_used] || ins.insurance_used}</span>
-                    <div class="flex items-center gap-2">
-                      <span class="text-[10px] text-ink-200">{ins.reports} bills</span>
-                      <span class="font-mono font-bold text-sm {surpriseColor(ins.avg_surprise)}">{Math.round(ins.avg_surprise)}%</span>
+                    <div class="flex items-center gap-3">
+                      <span class="text-[11px] text-ink-200 font-mono">{ins.reports} bills</span>
+                      <span class="font-mono font-bold text-sm w-12 text-right {surpriseColor(ins.avg_surprise)}">{Math.round(ins.avg_surprise)}%</span>
                     </div>
                   </div>
-                  <div class="relative h-[2px] bg-ink-100 rounded-full">
-                    <div class="absolute h-[2px] rounded-full {ins.avg_surprise > 20 ? 'bg-pop-red' : ins.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
+                  <div class="relative h-[3px] bg-ink-100 rounded-full">
+                    <div class="absolute h-[3px] rounded-full {ins.avg_surprise > 20 ? 'bg-pop-red' : ins.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
                       style="width: {Math.max(3, (Math.abs(ins.avg_surprise) / maxIns) * 100)}%">
-                      <div class="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full
+                      <div class="absolute right-0 top-1/2 -translate-y-1/2 w-[7px] h-[7px] rounded-full
                         {ins.avg_surprise > 20 ? 'bg-pop-red' : ins.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"></div>
                     </div>
                   </div>
@@ -542,21 +631,21 @@
           {@const sortedTiers = [...data.insights.tier_breakdown].sort((a, b) => b.avg_surprise - a.avg_surprise)}
           {@const maxTier = Math.max(...sortedTiers.map(t => Math.abs(t.avg_surprise)), 1)}
           <div>
-            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-4 font-semibold">By hospital type</h2>
-            <div class="space-y-4">
+            <h2 class="text-xs text-ink-300 uppercase tracking-widest mb-5 font-semibold">By hospital type</h2>
+            <div class="space-y-5">
               {#each sortedTiers as tier}
                 <button on:click={() => { filterTier = tier.hospital_tier; }} class="w-full text-left group">
                   <div class="flex items-center justify-between mb-1.5">
                     <span class="text-sm font-medium group-hover:text-pop-red transition-colors">{tierLabels[tier.hospital_tier] || tier.hospital_tier}</span>
-                    <div class="flex items-center gap-2">
-                      <span class="text-[10px] text-ink-200">{tier.reports} bills</span>
-                      <span class="font-mono font-bold text-sm {surpriseColor(tier.avg_surprise)}">{Math.round(tier.avg_surprise)}%</span>
+                    <div class="flex items-center gap-3">
+                      <span class="text-[11px] text-ink-200 font-mono">{tier.reports} bills</span>
+                      <span class="font-mono font-bold text-sm w-12 text-right {surpriseColor(tier.avg_surprise)}">{Math.round(tier.avg_surprise)}%</span>
                     </div>
                   </div>
-                  <div class="relative h-[2px] bg-ink-100 rounded-full">
-                    <div class="absolute h-[2px] rounded-full {tier.avg_surprise > 20 ? 'bg-pop-red' : tier.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
+                  <div class="relative h-[3px] bg-ink-100 rounded-full">
+                    <div class="absolute h-[3px] rounded-full {tier.avg_surprise > 20 ? 'bg-pop-red' : tier.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"
                       style="width: {Math.max(3, (Math.abs(tier.avg_surprise) / maxTier) * 100)}%">
-                      <div class="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full
+                      <div class="absolute right-0 top-1/2 -translate-y-1/2 w-[7px] h-[7px] rounded-full
                         {tier.avg_surprise > 20 ? 'bg-pop-red' : tier.avg_surprise > 0 ? 'bg-pop-amber' : 'bg-pop-green'}"></div>
                     </div>
                   </div>

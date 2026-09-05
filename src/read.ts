@@ -105,6 +105,14 @@ export async function handleStats(env: Env): Promise<Response> {
          GROUP BY procedure_type
          HAVING SUM(report_count) >= 1`
       ),
+      env.DB.prepare(
+        `SELECT city, SUM(report_count) as reports,
+                SUM(avg_surprise_pct * report_count) / SUM(report_count) as avg_surprise
+         FROM aggregates
+         GROUP BY city
+         HAVING SUM(report_count) >= 1
+         ORDER BY avg_surprise DESC`
+      ),
     ]);
 
     const overview = results[0].results[0] as Record<string, unknown> | undefined;
@@ -112,6 +120,7 @@ export async function handleStats(env: Env): Promise<Response> {
     const topAbsurd = results[2].results[0] || null;
     const todayCount = results[3].results[0] as Record<string, unknown> | undefined;
     const procedureRows = results[4].results as Array<{ procedure_type: string; reports: number; avg_surprise: number }>;
+    const allCitiesMap = results[5].results;
 
     const catAgg: Record<string, { reports: number; weightedSurprise: number }> = {};
     for (const row of procedureRows) {
@@ -140,6 +149,7 @@ export async function handleStats(env: Env): Promise<Response> {
       city_leaderboard: cityLeaderboard,
       top_categories: topCategories,
       top_absurd_charge: topAbsurd,
+      all_cities_map: allCitiesMap,
     };
   });
 }

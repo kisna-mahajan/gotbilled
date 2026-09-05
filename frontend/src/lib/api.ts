@@ -45,6 +45,11 @@ export interface StatsData {
     city: string;
     hospital_tier: string;
   } | null;
+  all_cities_map?: Array<{
+    city: string;
+    reports: number;
+    avg_surprise: number;
+  }>;
 }
 
 export interface CityOption {
